@@ -1,16 +1,62 @@
-import { EmConstrucao } from "@/components/em-construcao";
+import { prisma } from "@/lib/db";
+import { situacaoEstoque } from "@/lib/estoque";
 
-export default function PaginaInsumos() {
-  return (
-    <EmConstrucao
-      fase="Fase 1"
-      titulo="Insumos"
-      recursos={[
-        "Cadastrar cada ingrediente com a unidade certa (g, ml ou unidade)",
-        "Registrar medidas caseiras: 1 xícara de farinha = 120 g",
-        "Definir o estoque mínimo pra o sistema avisar antes de acabar",
-        "Ver o histórico de preço de cada insumo e quanto ele subiu",
-      ]}
-    />
+import { ListaInsumos, type InsumoDaLista } from "./lista-insumos";
+
+export const dynamic = "force-dynamic";
+
+export default async function PaginaInsumos() {
+  const [insumos, saldos] = await Promise.all([
+    prisma.insumo.findMany({
+      orderBy: { nome: "asc" },
+      select: {
+        id: true,
+        nome: true,
+        categoria: true,
+        unidadeBase: true,
+        estoqueMinimo: true,
+        custoMedio: true,
+        custoUltimaCompra: true,
+        perecivel: true,
+        marcaPreferida: true,
+        observacao: true,
+        ativo: true,
+      },
+    }),
+    // Uma consulta agregada só, em vez de carregar todos os lotes de cada insumo
+    prisma.insumoLote.groupBy({
+      by: ["insumoId"],
+      _sum: { quantidadeRestante: true },
+    }),
+  ]);
+
+  const saldoPorInsumo = new Map(
+    saldos.map((s) => [s.insumoId, Number(s._sum.quantidadeRestante ?? 0)]),
   );
+
+  const lista: InsumoDaLista[] = insumos.map((insumo) => {
+    const saldo = saldoPorInsumo.get(insumo.id) ?? 0;
+    const minimo = Number(insumo.estoqueMinimo);
+
+    return {
+      id: insumo.id,
+      nome: insumo.nome,
+      categoria: insumo.categoria,
+      unidadeBase: insumo.unidadeBase,
+      estoqueMinimo: minimo,
+      custoMedio: Number(insumo.custoMedio),
+      custoUltimaCompra:
+        insumo.custoUltimaCompra === null
+          ? null
+          : Number(insumo.custoUltimaCompra),
+      perecivel: insumo.perecivel,
+      marcaPreferida: insumo.marcaPreferida,
+      observacao: insumo.observacao,
+      ativo: insumo.ativo,
+      saldo,
+      situacao: situacaoEstoque(saldo, minimo),
+    };
+  });
+
+  return <ListaInsumos insumos={lista} />;
 }

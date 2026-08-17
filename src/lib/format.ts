@@ -51,6 +51,7 @@ export function lerNumeroBR(texto: string | number | null | undefined): number {
   if (texto === null || texto === undefined || texto === "") return 0;
   if (typeof texto === "number") return texto;
 
+  // Tira "R$", espa\u00e7o e qualquer outro enfeite \u2014 sobra s\u00f3 d\u00edgito, v\u00edrgula, ponto e sinal
   const limpo = texto.trim().replace(/[^\d,.-]/g, "");
   if (!limpo) return 0;
 
@@ -69,7 +70,36 @@ export function lerNumeroBR(texto: string | number | null | undefined): number {
   return Number.isFinite(numero) ? numero : 0;
 }
 
+/**
+ * Deixa o texto comparável: sem acento, minúsculo, sem espaço sobrando.
+ * Usado na busca — ela vai digitar "acucar" e tem que achar "Açúcar".
+ */
+export function normalizarTexto(texto: string): string {
+  return texto
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "");
+}
+
 const FUSO = "America/Sao_Paulo";
+
+/**
+ * Lê "2026-08-17" de um `<input type="date">` como aquele dia no fuso local.
+ *
+ * `new Date("2026-08-17")` seria meia-noite UTC — que no Brasil (UTC-3) ainda é
+ * dia 16 às 21h. A compra lançada hoje apareceria como sendo de ontem. Ancorar
+ * ao MEIO-DIA local também deixa a data imune a horário de verão.
+ */
+export function lerDataLocal(iso: string): Date {
+  const [ano, mes, dia] = iso.split("-").map(Number);
+
+  if (!ano || !mes || !dia) {
+    throw new Error(`Data inválida: "${iso}". Use o formato AAAA-MM-DD.`);
+  }
+
+  return new Date(ano, mes - 1, dia, 12, 0, 0, 0);
+}
 
 /** 17/08/2026 */
 export function formatarData(data: Date | string | null | undefined): string {

@@ -1,16 +1,52 @@
-import { EmConstrucao } from "@/components/em-construcao";
+import { prisma } from "@/lib/db";
+import { CabecalhoPagina } from "@/components/cabecalho-pagina";
 
-export default function PaginaAjustes() {
+import { FormularioPrecificacao } from "./formulario-precificacao";
+import { FormularioNegocio } from "./formulario-negocio";
+import { FormularioSenha } from "./formulario-senha";
+
+export const dynamic = "force-dynamic";
+
+export default async function PaginaAjustes() {
+  const [precificacao, negocio] = await Promise.all([
+    prisma.configPrecificacao.findUnique({ where: { id: "default" } }),
+    prisma.configNegocio.findUnique({ where: { id: "default" } }),
+  ]);
+
   return (
-    <EmConstrucao
-      fase="Fase 3"
-      titulo="Ajustes"
-      recursos={[
-        "Definir quanto vale sua hora de trabalho",
-        "Configurar margem de lucro, taxa de cartão e impostos",
-        "Cadastrar os dados da doceria",
-        "Trocar sua senha e fazer backup dos dados",
-      ]}
-    />
+    <div className="mx-auto max-w-3xl space-y-6">
+      <CabecalhoPagina
+        titulo="Ajustes"
+        descricao="Estas contas entram no preço de todos os seus produtos."
+      />
+
+      <FormularioPrecificacao
+        valores={{
+          valorHoraMaoDeObra: Number(precificacao?.valorHoraMaoDeObra ?? 0),
+          percentualCustosFixos: Number(precificacao?.percentualCustosFixos ?? 0),
+          percentualImpostos: Number(precificacao?.percentualImpostos ?? 0),
+          percentualTaxaCartao: Number(precificacao?.percentualTaxaCartao ?? 0),
+          margemLucroPadrao: Number(precificacao?.margemLucroPadrao ?? 30),
+          faturamentoMedioMensal: Number(
+            precificacao?.faturamentoMedioMensal ?? 0,
+          ),
+          alertaVariacaoPreco: Number(precificacao?.alertaVariacaoPreco ?? 10),
+          diasAlertaValidade: precificacao?.diasAlertaValidade ?? 7,
+        }}
+      />
+
+      <FormularioNegocio
+        valores={{
+          nomeFantasia: negocio?.nomeFantasia ?? "Simone Carvalho Doceria",
+          telefone: negocio?.telefone ?? "",
+          whatsapp: negocio?.whatsapp ?? "",
+          instagram: negocio?.instagram ?? "",
+          endereco: negocio?.endereco ?? "",
+          cnpj: negocio?.cnpj ?? "",
+        }}
+      />
+
+      <FormularioSenha />
+    </div>
   );
 }

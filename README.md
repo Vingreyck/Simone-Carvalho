@@ -112,7 +112,7 @@ tests/                 testes de cálculo
 | Fase | Módulo | Situação |
 |---|---|---|
 | 0 | Fundação, login, layout, PWA, deploy | ✅ pronta |
-| 1 | Insumos, Compras, Estoque | ⏳ a construir |
+| 1 | Insumos, Compras, Estoque | ✅ pronta |
 | 2 | Fichas técnicas e Precificação | ⏳ a construir |
 | 3 | Produção e Financeiro | ⏳ a construir |
 | 4 | Vendas e Encomendas | ⏳ a construir |

@@ -73,8 +73,8 @@ Não usar "custo × 3" (é o que a maioria faz e erra). Os custos fixos cadastra
 | Fase | Módulo | Situação |
 |---|---|---|
 | 0 | Fundação, login, layout, PWA, deploy | ✅ pronta |
-| 1 | Insumos, Compras, Estoque | ⏳ próxima |
-| 2 | Fichas técnicas e Precificação | ⏳ |
+| 1 | Insumos, Compras, Estoque | ✅ pronta |
+| 2 | Fichas técnicas e Precificação | ⏳ próxima |
 | 3 | Produção e Financeiro | ⏳ |
 | 4 | Vendas e Encomendas | ⏳ |
 | 5 | Câmeras ao vivo | ⏳ |
@@ -96,6 +96,29 @@ Ela **ainda não comprou**. Recomendação: câmeras com **RTSP nativo**
   latência ~1s (ótimo pra loja). Se quiser ~0,3s, alternativa é **Tailscale** (exige app
   no celular dela).
 - LGPD: aviso de "ambiente monitorado" na loja, acesso só autenticado, sem nuvem.
+
+## 🚀 Produção (no ar desde 17/ago/2026)
+
+- **URL:** https://simone-carvalho-production.up.railway.app
+- **Railway:** projeto `bountiful-happiness`, ambiente `production`
+  - serviço `Simone-Carvalho` (app, conectado ao GitHub → auto-deploy por push)
+  - serviço `Postgres`
+- **Login:** `simone@doceria.local` / senha em `SEED_ADMIN_SENHA` no Railway.
+- `NODE_ENV=production` confirmado no contêiner → cookie de sessão sai com `Secure`.
+  ⚠️ **NÃO** definir `NODE_ENV` manualmente no Railway: isso faria o npm pular as
+  devDependencies e o build quebraria (Next, TypeScript e Tailwind são devDeps).
+
+### Pegadinhas do Railway que já custaram tempo
+
+1. `railway run <cmd>` roda o comando **na máquina local** com as variáveis do Railway.
+   Como `DATABASE_URL` aponta pra `postgres.railway.internal`, dá `DatabaseNotReachable`.
+   Pra mexer no banco de produção use **`railway ssh`** (roda dentro do contêiner).
+2. `railway ssh` não aceita `node -e "..."` (o shell interno quebra nos parênteses) nem
+   `VAR=x cmd`. Pra sobrescrever variável use **`railway ssh ... env VAR=valor cmd`**.
+3. Mudar variável no painel **não reinicia** o contêiner na hora — o processo antigo
+   continua com o valor velho. Confirme com `railway ssh ... printenv VAR`.
+4. O seed **não roda** no deploy (só `prisma migrate deploy`). Depois de subir banco novo:
+   `railway ssh --service Simone-Carvalho npm run db:seed`.
 
 ## 🔒 Regras de trabalho
 
