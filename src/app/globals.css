@@ -1,0 +1,295 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ---------------------------------------------------------------------------
+   Identidade — Simone Carvalho Doceria
+   Extraída do logo: verde sage (#C9D1AE) + dourado/bronze (#D4AF37 → #8A6A1F).
+
+   Nota de contraste: o dourado puro com texto branco dá ~2,3:1 (reprova em
+   acessibilidade). Por isso o BOTÃO usa o bronze (~5,5:1, passa AA) e o dourado
+   fica nos detalhes — bordas, ícones, destaques. A marca continua dourada, mas
+   o sistema fica legível pra usar o dia inteiro.
+   --------------------------------------------------------------------------- */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --font-sans: var(--font-inter);
+  --font-heading: var(--font-fraunces);
+  --font-script: var(--font-parisienne);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Dourado da marca — detalhes, não superfícies grandes */
+  --color-gold: var(--gold);
+  --color-gold-soft: var(--gold-soft);
+  --color-sage: var(--sage);
+  --color-sage-soft: var(--sage-soft);
+
+  /* Estados — usados o tempo todo (lucro/prejuízo, estoque ok/baixo/vencendo) */
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-info-soft: var(--info-soft);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  --radius: 0.75rem;
+
+  --background: oklch(0.9785 0.0105 112);
+  --foreground: oklch(0.3232 0.038 114.6);
+
+  --card: oklch(0.995 0.004 110);
+  --card-foreground: oklch(0.3232 0.038 114.6);
+
+  --popover: oklch(0.995 0.004 110);
+  --popover-foreground: oklch(0.3232 0.038 114.6);
+
+  /* Bronze — o dourado da marca escurecido até passar em contraste */
+  --primary: oklch(0.5426 0.0983 84.4);
+  --primary-foreground: oklch(0.9885 0.008 100);
+
+  --secondary: oklch(0.9315 0.0245 117);
+  --secondary-foreground: oklch(0.3505 0.0405 112);
+
+  --muted: oklch(0.9445 0.0195 116);
+  --muted-foreground: oklch(0.5225 0.0285 110);
+
+  --accent: oklch(0.9043 0.0352 117.7);
+  --accent-foreground: oklch(0.3305 0.0425 112);
+
+  --destructive: oklch(0.5575 0.205 27);
+  --destructive-foreground: oklch(0.9885 0.008 100);
+
+  --border: oklch(0.8845 0.0265 117);
+  --input: oklch(0.8845 0.0265 117);
+  --ring: oklch(0.7665 0.1387 91.1);
+
+  --gold: oklch(0.7665 0.1387 91.1);
+  --gold-soft: oklch(0.8826 0.101 96.9);
+  --sage: oklch(0.7467 0.0617 119.3);
+  --sage-soft: oklch(0.9043 0.0352 117.7);
+
+  /* Verde esmeralda (não oliva) pra não confundir com o sage da marca */
+  --success: oklch(0.5185 0.1265 152);
+  --success-foreground: oklch(0.9885 0.008 100);
+  --success-soft: oklch(0.9415 0.042 152);
+
+  /* Laranja queimado — distante do dourado no matiz, não se confunde */
+  --warning: oklch(0.6085 0.1495 52);
+  --warning-foreground: oklch(0.9885 0.008 100);
+  --warning-soft: oklch(0.9485 0.045 58);
+
+  --danger: oklch(0.5575 0.205 27);
+  --danger-foreground: oklch(0.9885 0.008 100);
+  --danger-soft: oklch(0.9455 0.035 25);
+
+  --info: oklch(0.5265 0.1195 249);
+  --info-foreground: oklch(0.9885 0.008 100);
+  --info-soft: oklch(0.9445 0.032 249);
+
+  /* Série categórica — revisada na fase dos gráficos */
+  --chart-1: oklch(0.6285 0.1195 88);
+  --chart-2: oklch(0.5825 0.0745 133);
+  --chart-3: oklch(0.5185 0.1265 190);
+  --chart-4: oklch(0.5265 0.1195 285);
+  --chart-5: oklch(0.5885 0.1495 35);
+
+  --sidebar: oklch(0.9505 0.0225 116);
+  --sidebar-foreground: oklch(0.3232 0.038 114.6);
+  --sidebar-primary: oklch(0.5426 0.0983 84.4);
+  --sidebar-primary-foreground: oklch(0.9885 0.008 100);
+  --sidebar-accent: oklch(0.8985 0.0375 117);
+  --sidebar-accent-foreground: oklch(0.3305 0.0425 112);
+  --sidebar-border: oklch(0.8765 0.0295 117);
+  --sidebar-ring: oklch(0.7665 0.1387 91.1);
+}
+
+.dark {
+  --background: oklch(0.1985 0.0135 115);
+  --foreground: oklch(0.9315 0.0195 112);
+
+  --card: oklch(0.2445 0.0155 115);
+  --card-foreground: oklch(0.9315 0.0195 112);
+
+  --popover: oklch(0.2445 0.0155 115);
+  --popover-foreground: oklch(0.9315 0.0195 112);
+
+  /* No escuro o dourado brilha e contrasta — vira o primário de verdade */
+  --primary: oklch(0.7885 0.1305 92);
+  --primary-foreground: oklch(0.2185 0.0225 95);
+
+  --secondary: oklch(0.2925 0.0185 115);
+  --secondary-foreground: oklch(0.9315 0.0195 112);
+
+  --muted: oklch(0.2925 0.0185 115);
+  --muted-foreground: oklch(0.7285 0.0235 112);
+
+  --accent: oklch(0.3345 0.0265 116);
+  --accent-foreground: oklch(0.9315 0.0195 112);
+
+  --destructive: oklch(0.6605 0.1855 25);
+  --destructive-foreground: oklch(0.2065 0.02 25);
+
+  --border: oklch(1 0 0 / 11%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.7885 0.1305 92);
+
+  --gold: oklch(0.8265 0.1205 94);
+  --gold-soft: oklch(0.3565 0.0605 92);
+  --sage: oklch(0.7467 0.0617 119.3);
+  --sage-soft: oklch(0.3245 0.0345 118);
+
+  --success: oklch(0.7185 0.1485 154);
+  --success-foreground: oklch(0.2065 0.025 154);
+  --success-soft: oklch(0.2925 0.0505 154);
+
+  --warning: oklch(0.7565 0.1495 58);
+  --warning-foreground: oklch(0.2065 0.025 58);
+  --warning-soft: oklch(0.3045 0.0555 58);
+
+  --danger: oklch(0.6605 0.1855 25);
+  --danger-foreground: oklch(0.2065 0.02 25);
+  --danger-soft: oklch(0.2985 0.055 25);
+
+  --info: oklch(0.6905 0.1275 248);
+  --info-foreground: oklch(0.2065 0.025 248);
+  --info-soft: oklch(0.2925 0.048 248);
+
+  --chart-1: oklch(0.7885 0.1305 92);
+  --chart-2: oklch(0.7285 0.0885 133);
+  --chart-3: oklch(0.7025 0.1195 190);
+  --chart-4: oklch(0.6905 0.1275 285);
+  --chart-5: oklch(0.7305 0.1495 38);
+
+  --sidebar: oklch(0.2245 0.0155 115);
+  --sidebar-foreground: oklch(0.9315 0.0195 112);
+  --sidebar-primary: oklch(0.7885 0.1305 92);
+  --sidebar-primary-foreground: oklch(0.2185 0.0225 95);
+  --sidebar-accent: oklch(0.3045 0.0215 116);
+  --sidebar-accent-foreground: oklch(0.9315 0.0195 112);
+  --sidebar-border: oklch(1 0 0 / 11%);
+  --sidebar-ring: oklch(0.7885 0.1305 92);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    @apply font-sans;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    /* Respeita o notch/barra do celular quando instalado como app */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-heading tracking-tight;
+  }
+
+  /* Dinheiro e quantidades alinham em coluna sem "dançar" */
+  th,
+  td,
+  input[type="number"],
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer utilities {
+  /* Assinatura da marca — o mesmo brilho do dourado do logo */
+  .text-gradient-gold {
+    background-image: linear-gradient(
+      100deg,
+      oklch(0.5426 0.0983 84.4) 0%,
+      oklch(0.8826 0.101 96.9) 38%,
+      oklch(0.7665 0.1387 91.1) 62%,
+      oklch(0.5426 0.0983 84.4) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .border-gold-hairline {
+    border-color: color-mix(in oklab, var(--gold) 45%, transparent);
+  }
+
+  /* Some o spinner nativo dos campos numéricos — usamos teclado/steppers próprios */
+  .no-spinner::-webkit-outer-spin-button,
+  .no-spinner::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  .no-spinner {
+    -moz-appearance: textfield;
+  }
+}
+
+/* Barra de rolagem discreta, combinando com o tema */
+@supports (scrollbar-width: thin) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+}

@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <title>Simone Carvalho Doceria</title>
+
+  <defs>
+    <linearGradient id="ouro" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#8A6A1F"/>
+      <stop offset="35%" stop-color="#EBD98A"/>
+      <stop offset="62%" stop-color="#D4AF37"/>
+      <stop offset="100%" stop-color="#8A6A1F"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Fundo sage da marca -->
+  <rect width="512" height="512" rx="112" fill="#C9D1AE"/>
+
+  <!-- Moldura oval -->
+  <ellipse cx="236" cy="256" rx="132" ry="168"
+           fill="none" stroke="url(#ouro)" stroke-width="11"/>
+
+  <!-- Monograma: C grande envolvendo o S, como no logo.
+       O C é fino e aberto à direita; o S é mais grosso e fica por cima,
+       então os dois se leem como letras separadas e não como um rabisco. -->
+  <g fill="none" stroke="url(#ouro)" stroke-linecap="round" stroke-linejoin="round">
+    <!-- C -->
+    <path d="M318 182
+             C 286 152, 214 158, 180 202
+             C 146 246, 152 316, 192 344
+             C 230 370, 292 358, 318 328"
+          stroke-width="12" opacity="0.85"/>
+
+    <!-- S, centrado dentro do C -->
+    <path d="M280 202
+             C 262 180, 218 180, 206 202
+             C 194 224, 220 242, 244 254
+             C 268 266, 288 290, 272 312
+             C 256 334, 212 332, 196 312"
+          stroke-width="19"/>
+  </g>
+
+  <!-- Ramo de oliveira -->
+  <g>
+    <path d="M392 120 C 424 190, 428 288, 400 366"
+          fill="none" stroke="url(#ouro)" stroke-width="9" stroke-linecap="round"/>
+    <path d="M400 162 C 434 146, 464 156, 474 180 C 442 196, 412 186, 400 162 Z" fill="url(#ouro)"/>
+    <path d="M414 226 C 448 212, 478 224, 486 248 C 454 262, 424 250, 414 226 Z" fill="url(#ouro)"/>
+    <path d="M416 292 C 450 280, 480 294, 486 318 C 454 330, 424 316, 416 292 Z" fill="url(#ouro)"/>
+    <path d="M388 142 C 358 126, 332 132, 324 152 C 350 166, 376 162, 388 142 Z" fill="url(#ouro)"/>
+  </g>
+</svg>

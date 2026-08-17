@@ -1,0 +1,23 @@
+## Postgres local pra desenvolver sem depender do Railway.
+## Sobe com:  npm run db:up      Derruba com:  npm run db:down
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: doceria-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: doceria
+      POSTGRES_PASSWORD: doceria
+      POSTGRES_DB: doceria
+    ports:
+      - "5433:5432"
+    volumes:
+      - doceria-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U doceria -d doceria"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  doceria-pgdata:

@@ -1,0 +1,672 @@
+// Simone Carvalho Doceria — modelo de dados
+//
+// Convenções deste schema:
+//  - Todo estoque vive na UNIDADE BASE do insumo (g, ml ou un). Kg/L/xícara são
+//    apenas formas de DIGITAR — são convertidos na entrada e nunca armazenados.
+//  - Dinheiro por unidade base usa Decimal(14,6), porque R$ 0,0056/g precisa de
+//    casas decimais. Totais em reais usam Decimal(12,2).
+//  - Campos "custoMedio" e afins são derivados, mas ficam gravados (denormalizados)
+//    pra o painel não recalcular o histórico inteiro a cada abertura de tela.
+//    Sempre recalculados dentro da mesma transação que mexe no estoque.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ===========================================================================
+// ACESSO
+// ===========================================================================
+
+model Usuario {
+  id           String    @id @default(cuid())
+  nome         String
+  email        String    @unique
+  senhaHash    String
+  ativo        Boolean   @default(true)
+  ultimoLogin  DateTime?
+  criadoEm     DateTime  @default(now())
+  atualizadoEm DateTime  @updatedAt
+
+  @@map("usuarios")
+}
+
+// ===========================================================================
+// INSUMOS  (o que ela compra pra produzir)
+// ===========================================================================
+
+enum UnidadeBase {
+  G // sólidos, em gramas
+  ML // líquidos, em mililitros
+  UN // unidades (ovo, forminha, caixa)
+
+  @@map("unidade_base")
+}
+
+enum CategoriaInsumo {
+  FARINHAS_E_SECOS
+  ACUCARES
+  LATICINIOS
+  OVOS
+  CHOCOLATES_E_CACAU
+  FRUTAS
+  GORDURAS
+  FERMENTOS_E_ADITIVOS
+  ESSENCIAS_E_CORANTES
+  CONFEITOS_E_DECORACAO
+  EMBALAGENS
+  DESCARTAVEIS
+  OUTROS
+
+  @@map("categoria_insumo")
+}
+
+model Insumo {
+  id          String          @id @default(cuid())
+  nome        String          @unique
+  categoria   CategoriaInsumo @default(OUTROS)
+  unidadeBase UnidadeBase
+
+  /// Abaixo disso o sistema alerta que está acabando (na unidade base)
+  estoqueMinimo Decimal @default(0) @db.Decimal(14, 4)
+
+  /// Custo médio ponderado por unidade base — é o que a ficha técnica usa
+  custoMedio Decimal @default(0) @db.Decimal(14, 6)
+
+  /// Custo da última compra — mostrado ao lado do médio pra ela ver a tendência
+  custoUltimaCompra  Decimal?  @db.Decimal(14, 6)
+  dataUltimaCompra   DateTime?
+
+  /// Perecível liga o controle de validade por lote
+  perecivel      Boolean @default(false)
+  marcaPreferida String?
+  observacao     String?
+  ativo          Boolean @default(true)
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  equivalencias   InsumoEquivalencia[]
+  lotes           InsumoLote[]
+  compraItens     CompraItem[]
+  receitaItens    ReceitaItem[]
+  movimentos      MovimentoEstoque[]
+  historicoPrecos HistoricoPrecoInsumo[]
+
+  @@index([categoria])
+  @@index([ativo])
+  @@map("insumos")
+}
+
+/// Unidades caseiras e embalagens que ELA usa pra falar do insumo.
+/// Ex.: "xícara" de farinha = 120 g, mas "xícara" de açúcar = 180 g — por isso
+/// a equivalência é por insumo, e não uma tabela global.
+model InsumoEquivalencia {
+  id       String @id @default(cuid())
+  insumoId String
+
+  /// "xícara", "colher de sopa", "lata", "caixinha", "pacote"
+  nome String
+
+  /// Quanto 1 dessa unidade dá na unidade base do insumo
+  quantidadeBase Decimal @db.Decimal(14, 4)
+
+  insumo Insumo @relation(fields: [insumoId], references: [id], onDelete: Cascade)
+
+  @@unique([insumoId, nome])
+  @@map("insumo_equivalencias")
+}
+
+/// Cada vez que o preço de um insumo muda, grava aqui.
+/// É o que permite avisar "o chocolate subiu 18% — 6 receitas ficaram mais caras".
+model HistoricoPrecoInsumo {
+  id       String @id @default(cuid())
+  insumoId String
+
+  custoUnitario Decimal   @db.Decimal(14, 6)
+  origem        String // "compra" | "ajuste manual"
+  compraId      String?
+  registradoEm  DateTime  @default(now())
+
+  insumo Insumo @relation(fields: [insumoId], references: [id], onDelete: Cascade)
+
+  @@index([insumoId, registradoEm])
+  @@map("historico_preco_insumos")
+}
+
+// ===========================================================================
+// COMPRAS E ESTOQUE
+// ===========================================================================
+
+model Fornecedor {
+  id         String   @id @default(cuid())
+  nome       String   @unique
+  telefone   String?
+  endereco   String?
+  observacao String?
+  ativo      Boolean  @default(true)
+  criadoEm   DateTime @default(now())
+
+  compras Compra[]
+
+  @@map("fornecedores")
+}
+
+model Compra {
+  id           String   @id @default(cuid())
+  numero       Int      @unique @default(autoincrement())
+  fornecedorId String?
+  data         DateTime @default(now())
+
+  valorTotal Decimal @default(0) @db.Decimal(12, 2)
+  /// Frete e outras taxas rateadas entre os itens
+  valorFrete Decimal @default(0) @db.Decimal(12, 2)
+
+  notaFiscal String?
+  anexoUrl   String?
+  observacao String?
+
+  criadoEm DateTime @default(now())
+
+  fornecedor  Fornecedor?  @relation(fields: [fornecedorId], references: [id], onDelete: SetNull)
+  itens       CompraItem[]
+  lotes       InsumoLote[]
+  lancamentos Lancamento[]
+
+  @@index([data])
+  @@map("compras")
+}
+
+/// Aqui mora a conversão que resolve a dor principal:
+/// "2 sacos de 5 kg por R$ 56" vira 10.000 g a R$ 0,0056/g.
+model CompraItem {
+  id       String @id @default(cuid())
+  compraId String
+  insumoId String
+
+  /// Quantas embalagens ela comprou (2 sacos)
+  quantidadeEmbalagens Decimal @db.Decimal(14, 4)
+
+  /// Quanto vem em cada embalagem (5)
+  tamanhoEmbalagem Decimal @db.Decimal(14, 4)
+
+  /// Em que unidade veio escrito na embalagem (KG) — só pra exibir de volta pra ela
+  unidadeEmbalagem String
+
+  /// Total já convertido pra unidade base do insumo (10000 g)
+  quantidadeBase Decimal @db.Decimal(14, 4)
+
+  valorTotal Decimal @db.Decimal(12, 2)
+
+  /// valorTotal ÷ quantidadeBase — congelado no momento da compra
+  custoUnitarioBase Decimal @db.Decimal(14, 6)
+
+  validade DateTime?
+
+  compra Compra @relation(fields: [compraId], references: [id], onDelete: Cascade)
+  insumo Insumo @relation(fields: [insumoId], references: [id], onDelete: Restrict)
+  lote   InsumoLote?
+
+  @@index([insumoId])
+  @@map("compra_itens")
+}
+
+/// Um lote por entrada de insumo. A baixa é FIFO priorizando quem vence antes —
+/// regra correta pra alimento, e o que permite avisar "o creme de leite vence em 3 dias".
+model InsumoLote {
+  id           String  @id @default(cuid())
+  insumoId     String
+  compraId     String?
+  compraItemId String? @unique
+
+  quantidadeInicial  Decimal @db.Decimal(14, 4)
+  quantidadeRestante Decimal @db.Decimal(14, 4)
+  custoUnitario      Decimal @db.Decimal(14, 6)
+
+  validade    DateTime?
+  dataEntrada DateTime  @default(now())
+
+  insumo     Insumo      @relation(fields: [insumoId], references: [id], onDelete: Cascade)
+  compra     Compra?     @relation(fields: [compraId], references: [id], onDelete: SetNull)
+  compraItem CompraItem? @relation(fields: [compraItemId], references: [id], onDelete: SetNull)
+
+  movimentos MovimentoEstoque[]
+
+  @@index([insumoId, quantidadeRestante])
+  @@index([validade])
+  @@map("insumo_lotes")
+}
+
+enum TipoMovimento {
+  ENTRADA_COMPRA
+  SAIDA_PRODUCAO
+  PERDA
+  AJUSTE_INVENTARIO
+  DEVOLUCAO
+
+  @@map("tipo_movimento")
+}
+
+/// Histórico de tudo que entrou e saiu. Nunca é editado — só recebe linhas novas.
+model MovimentoEstoque {
+  id       String        @id @default(cuid())
+  insumoId String
+  loteId   String?
+  tipo     TipoMovimento
+
+  /// Positivo entra, negativo sai — sempre na unidade base
+  quantidade    Decimal @db.Decimal(14, 4)
+  custoUnitario Decimal @db.Decimal(14, 6)
+
+  /// Saldo do insumo depois deste movimento (facilita auditar sem somar tudo)
+  saldoApos Decimal @db.Decimal(14, 4)
+
+  producaoId String?
+  motivo     String?
+  data       DateTime @default(now())
+
+  insumo   Insumo      @relation(fields: [insumoId], references: [id], onDelete: Cascade)
+  lote     InsumoLote? @relation(fields: [loteId], references: [id], onDelete: SetNull)
+  producao Producao?   @relation(fields: [producaoId], references: [id], onDelete: SetNull)
+
+  @@index([insumoId, data])
+  @@index([tipo])
+  @@map("movimentos_estoque")
+}
+
+// ===========================================================================
+// FICHAS TÉCNICAS
+// ===========================================================================
+
+model Receita {
+  id        String  @id @default(cuid())
+  nome      String  @unique
+  descricao String?
+  categoria String?
+
+  /// "esta receita rende 1 bolo" / "rende 30 brigadeiros" / "rende 800 g de recheio"
+  rendimentoQuantidade Decimal @db.Decimal(14, 4)
+  rendimentoUnidade    String
+
+  tempoPreparoMin Int     @default(0)
+  modoPreparo     String?
+  fotoUrl         String?
+  observacao      String?
+  ativo           Boolean @default(true)
+
+  /// Custo total da receita cheia, recalculado quando um insumo muda de preço
+  custoCalculado    Decimal   @default(0) @db.Decimal(12, 4)
+  custoCalculadoEm  DateTime?
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  itens      ReceitaItem[] @relation("ItensDaReceita")
+  usadaEm    ReceitaItem[] @relation("SubReceita")
+  produtos   Produto[]
+  producoes  Producao[]
+
+  @@index([ativo])
+  @@map("receitas")
+}
+
+/// Um item da ficha é OU um insumo OU outra receita (sub-receita).
+/// Sub-receita é o que deixa ela cadastrar "brigadeiro de recheio" uma vez só
+/// e reusar em 10 bolos — mudou o preço do chocolate, os 10 se atualizam.
+/// A regra "exatamente um dos dois preenchido" é garantida por CHECK constraint
+/// no banco (ver migration) e validada também na camada de aplicação.
+model ReceitaItem {
+  id           String  @id @default(cuid())
+  receitaId    String
+  insumoId     String?
+  subReceitaId String?
+
+  /// Como ela digitou (2, "xícara")
+  quantidade Decimal @db.Decimal(14, 4)
+  unidade    String
+
+  /// Já convertido: unidade base do insumo, ou unidade de rendimento da sub-receita
+  quantidadeBase Decimal @db.Decimal(14, 4)
+
+  observacao String?
+  ordem      Int     @default(0)
+
+  receita    Receita  @relation("ItensDaReceita", fields: [receitaId], references: [id], onDelete: Cascade)
+  insumo     Insumo?  @relation(fields: [insumoId], references: [id], onDelete: Restrict)
+  subReceita Receita? @relation("SubReceita", fields: [subReceitaId], references: [id], onDelete: Restrict)
+
+  @@index([receitaId, ordem])
+  @@index([insumoId])
+  @@index([subReceitaId])
+  @@map("receita_itens")
+}
+
+// ===========================================================================
+// PRODUTOS E PRECIFICAÇÃO
+// ===========================================================================
+
+model Produto {
+  id        String  @id @default(cuid())
+  nome      String  @unique
+  descricao String?
+  categoria String?
+  receitaId String?
+
+  /// Quantas unidades de rendimento da receita formam 1 produto vendido.
+  /// Ex.: receita rende 30 brigadeiros, o produto "Caixa com 12" usa 12.
+  consumoDaReceita Decimal @default(1) @db.Decimal(14, 4)
+
+  custoEmbalagem  Decimal @default(0) @db.Decimal(12, 2)
+  tempoExtraMin   Int     @default(0)
+
+  precoVenda Decimal  @default(0) @db.Decimal(12, 2)
+  /// Sobrepõe a margem padrão da configuração, quando preenchida
+  margemAlvo Decimal? @db.Decimal(5, 2)
+
+  fotoUrl String?
+  ativo   Boolean @default(true)
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  receita     Receita?     @relation(fields: [receitaId], references: [id], onDelete: SetNull)
+  pedidoItens PedidoItem[]
+
+  @@index([ativo])
+  @@map("produtos")
+}
+
+/// Linha única de configuração (id fixo "default").
+/// É o que fecha o ciclo: as despesas reais dela viram % embutido no preço.
+model ConfigPrecificacao {
+  id String @id @default("default")
+
+  /// Quanto vale 1 hora de trabalho dela
+  valorHoraMaoDeObra Decimal @default(0) @db.Decimal(12, 2)
+
+  /// % do faturamento que vai pros custos fixos (calculado dos custos fixos cadastrados)
+  percentualCustosFixos Decimal @default(0) @db.Decimal(5, 2)
+
+  percentualImpostos   Decimal @default(0) @db.Decimal(5, 2)
+  percentualTaxaCartao Decimal @default(0) @db.Decimal(5, 2)
+  margemLucroPadrao    Decimal @default(30) @db.Decimal(5, 2)
+
+  /// Base pro rateio dos custos fixos
+  faturamentoMedioMensal Decimal @default(0) @db.Decimal(12, 2)
+
+  /// Avisa quando um insumo sobe mais que isso (%)
+  alertaVariacaoPreco Decimal @default(10) @db.Decimal(5, 2)
+
+  /// Avisa lotes que vencem dentro de N dias
+  diasAlertaValidade Int @default(7)
+
+  atualizadoEm DateTime @updatedAt
+
+  @@map("config_precificacao")
+}
+
+/// Dados do negócio — usados no cabeçalho, nos orçamentos e no futuro portal do cliente
+model ConfigNegocio {
+  id           String   @id @default("default")
+  nomeFantasia String   @default("Simone Carvalho Doceria")
+  telefone     String?
+  whatsapp     String?
+  instagram    String?
+  endereco     String?
+  cnpj         String?
+  logoUrl      String?
+  atualizadoEm DateTime @updatedAt
+
+  @@map("config_negocio")
+}
+
+// ===========================================================================
+// PRODUÇÃO
+// ===========================================================================
+
+enum StatusProducao {
+  PLANEJADA
+  CONCLUIDA
+  CANCELADA
+
+  @@map("status_producao")
+}
+
+model Producao {
+  id        String @id @default(cuid())
+  numero    Int    @unique @default(autoincrement())
+  receitaId String
+
+  /// Quantas vezes a receita cheia foi feita (aceita 0,5 = meia receita)
+  quantidade Decimal @db.Decimal(14, 4)
+
+  data   DateTime       @default(now())
+  status StatusProducao @default(CONCLUIDA)
+
+  /// Custo real consumido, somando os lotes que saíram (pode diferir do custo médio)
+  custoTotal Decimal @default(0) @db.Decimal(12, 4)
+
+  observacao String?
+  criadoEm   DateTime @default(now())
+
+  receita    Receita            @relation(fields: [receitaId], references: [id], onDelete: Restrict)
+  movimentos MovimentoEstoque[]
+
+  @@index([data])
+  @@map("producoes")
+}
+
+// ===========================================================================
+// VENDAS
+// ===========================================================================
+
+model Cliente {
+  id         String    @id @default(cuid())
+  nome       String
+  telefone   String?
+  email      String?
+  endereco   String?
+  aniversario DateTime?
+  observacao String?
+  ativo      Boolean   @default(true)
+  criadoEm   DateTime  @default(now())
+
+  pedidos Pedido[]
+
+  @@index([nome])
+  @@map("clientes")
+}
+
+enum StatusPedido {
+  ORCAMENTO
+  CONFIRMADO
+  EM_PRODUCAO
+  PRONTO
+  ENTREGUE
+  CANCELADO
+
+  @@map("status_pedido")
+}
+
+enum CanalVenda {
+  LOJA
+  WHATSAPP
+  INSTAGRAM
+  INDICACAO
+  OUTRO
+
+  @@map("canal_venda")
+}
+
+model Pedido {
+  id        String  @id @default(cuid())
+  numero    Int     @unique @default(autoincrement())
+  clienteId String?
+
+  dataPedido  DateTime  @default(now())
+  dataEntrega DateTime?
+
+  status StatusPedido @default(ORCAMENTO)
+  canal  CanalVenda   @default(WHATSAPP)
+
+  subtotal   Decimal @default(0) @db.Decimal(12, 2)
+  desconto   Decimal @default(0) @db.Decimal(12, 2)
+  taxaEntrega Decimal @default(0) @db.Decimal(12, 2)
+  valorTotal Decimal @default(0) @db.Decimal(12, 2)
+  sinalPago  Decimal @default(0) @db.Decimal(12, 2)
+
+  formaPagamento String?
+  enderecoEntrega String?
+  observacao     String?
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  cliente     Cliente?     @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+  itens       PedidoItem[]
+  lancamentos Lancamento[]
+
+  @@index([dataEntrega])
+  @@index([status])
+  @@map("pedidos")
+}
+
+model PedidoItem {
+  id        String @id @default(cuid())
+  pedidoId  String
+  produtoId String
+
+  quantidade     Decimal @db.Decimal(14, 4)
+  precoUnitario  Decimal @db.Decimal(12, 2)
+
+  /// Custo congelado no momento da venda — o lucro do passado não muda
+  /// quando o preço da farinha subir amanhã.
+  custoUnitarioSnapshot Decimal @default(0) @db.Decimal(12, 4)
+
+  observacao String?
+
+  pedido  Pedido  @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  produto Produto @relation(fields: [produtoId], references: [id], onDelete: Restrict)
+
+  @@index([pedidoId])
+  @@map("pedido_itens")
+}
+
+// ===========================================================================
+// FINANCEIRO
+// ===========================================================================
+
+enum TipoLancamento {
+  RECEITA
+  DESPESA
+
+  @@map("tipo_lancamento")
+}
+
+enum StatusLancamento {
+  PENDENTE
+  PAGO
+  CANCELADO
+
+  @@map("status_lancamento")
+}
+
+model CategoriaFinanceira {
+  id    String         @id @default(cuid())
+  nome  String
+  tipo  TipoLancamento
+  cor   String?
+  /// Categorias criadas pelo sistema não podem ser apagadas
+  sistema Boolean @default(false)
+  ativo   Boolean @default(true)
+
+  lancamentos Lancamento[]
+
+  @@unique([nome, tipo])
+  @@map("categorias_financeiras")
+}
+
+model Lancamento {
+  id          String         @id @default(cuid())
+  tipo        TipoLancamento
+  categoriaId String?
+
+  descricao String
+  valor     Decimal @db.Decimal(12, 2)
+
+  dataVencimento DateTime
+  dataPagamento  DateTime?
+  status         StatusLancamento @default(PENDENTE)
+
+  formaPagamento String?
+  observacao     String?
+
+  compraId String?
+  pedidoId String?
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  categoria CategoriaFinanceira? @relation(fields: [categoriaId], references: [id], onDelete: SetNull)
+  compra    Compra?              @relation(fields: [compraId], references: [id], onDelete: SetNull)
+  pedido    Pedido?              @relation(fields: [pedidoId], references: [id], onDelete: SetNull)
+
+  @@index([dataVencimento])
+  @@index([status, tipo])
+  @@map("lancamentos")
+}
+
+/// Gás, luz, água, aluguel, internet. A soma vira o % de custos fixos
+/// que entra no preço de venda de cada doce.
+model CustoFixoMensal {
+  id            String  @id @default(cuid())
+  nome          String  @unique
+  valor         Decimal @db.Decimal(12, 2)
+  diaVencimento Int?
+  categoriaId   String?
+  ativo         Boolean @default(true)
+
+  criadoEm DateTime @default(now())
+
+  @@map("custos_fixos_mensais")
+}
+
+// ===========================================================================
+// CÂMERAS
+// ===========================================================================
+
+enum TipoCamera {
+  /// Stream servido pelo go2rtc na loja (WebRTC/MSE) — o caminho integrado
+  GO2RTC
+  /// Playlist HLS (.m3u8)
+  HLS
+  /// Imagem JPEG que atualiza sozinha
+  MJPEG
+  /// Página do app do fabricante embutida
+  IFRAME
+
+  @@map("tipo_camera")
+}
+
+model Camera {
+  id    String     @id @default(cuid())
+  nome  String
+  local String?
+  tipo  TipoCamera @default(GO2RTC)
+
+  /// URL base do go2rtc / do stream
+  url String
+
+  /// Nome do stream dentro do go2rtc (ex.: "loja_balcao")
+  streamId String?
+
+  ordem    Int      @default(0)
+  ativo    Boolean  @default(true)
+  criadoEm DateTime @default(now())
+
+  @@map("cameras")
+}
