@@ -75,8 +75,8 @@ Não usar "custo × 3" (é o que a maioria faz e erra). Os custos fixos cadastra
 | 0 | Fundação, login, layout, PWA, deploy | ✅ pronta |
 | 1 | Insumos, Compras, Estoque | ✅ pronta |
 | 2 | Fichas técnicas e Precificação | ✅ pronta |
-| 3 | Produção e Financeiro | ⏳ próxima |
-| 4 | Vendas e Encomendas | ⏳ |
+| 3 | Produção e Financeiro | ✅ pronta |
+| 4 | Vendas e Encomendas | ⏳ próxima |
 | 5 | Câmeras ao vivo | ⏳ |
 | — | Portal do cliente + WhatsApp | só quando ela pedir |
 

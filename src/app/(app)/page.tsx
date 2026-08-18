@@ -1,240 +1,402 @@
 import Link from "next/link";
 import {
   ArrowRight,
+  CalendarClock,
   ChefHat,
-  Check,
+  CookingPot,
   ShoppingCart,
-  Sliders,
   Tags,
-  Wheat,
+  TrendingDown,
 } from "lucide-react";
 
 import { prisma } from "@/lib/db";
+import { carregarBaseDeCusto, custoDeProduto } from "@/server/custos";
+import { analisarPreco, calcularPrecoSugerido } from "@/lib/precificacao";
+import { situacaoEstoque, situacaoValidade } from "@/lib/estoque";
+import { formatarDataRelativa, formatarMoeda, formatarNumero } from "@/lib/format";
+import { formatarQuantidade } from "@/lib/unidades";
 import { cn } from "@/lib/utils";
-import { formatarNumero } from "@/lib/format";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
+import { PrimeirosPassos } from "./primeiros-passos";
+
+export const dynamic = "force-dynamic";
 
 export default async function PaginaPainel() {
+  const hoje = new Date();
+  const inicioDoMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+
   const [
-    insumosAtivos,
-    insumosComPreco,
-    receitas,
+    insumos,
     produtos,
-    compras,
+    base,
     config,
+    doMes,
+    pendentes,
+    contagens,
   ] = await Promise.all([
-    prisma.insumo.count({ where: { ativo: true } }),
-    prisma.insumo.count({ where: { ativo: true, custoMedio: { gt: 0 } } }),
-    prisma.receita.count({ where: { ativo: true } }),
-    prisma.produto.count({ where: { ativo: true } }),
-    prisma.compra.count(),
+    prisma.insumo.findMany({
+      where: { ativo: true },
+      select: {
+        id: true,
+        nome: true,
+        unidadeBase: true,
+        estoqueMinimo: true,
+        lotes: {
+          where: { quantidadeRestante: { gt: 0 } },
+          select: { quantidadeRestante: true, validade: true },
+        },
+      },
+    }),
+    prisma.produto.findMany({
+      where: { ativo: true, precoVenda: { gt: 0 } },
+      select: {
+        id: true,
+        nome: true,
+        receitaId: true,
+        consumoDaReceita: true,
+        custoEmbalagem: true,
+        tempoExtraMin: true,
+        precoVenda: true,
+        margemAlvo: true,
+      },
+    }),
+    carregarBaseDeCusto(),
     prisma.configPrecificacao.findUnique({ where: { id: "default" } }),
+    prisma.lancamento.findMany({
+      where: { status: "PAGO", dataPagamento: { gte: inicioDoMes } },
+      select: { tipo: true, valor: true },
+    }),
+    prisma.lancamento.findMany({
+      where: { status: "PENDENTE" },
+      select: { tipo: true, valor: true, dataVencimento: true },
+    }),
+    Promise.all([
+      prisma.insumo.count({ where: { ativo: true } }),
+      prisma.compra.count(),
+      prisma.receita.count({ where: { ativo: true } }),
+      prisma.produto.count({ where: { ativo: true } }),
+    ]),
   ]);
 
-  const precificacaoConfigurada =
-    Number(config?.valorHoraMaoDeObra ?? 0) > 0 ||
-    Number(config?.percentualCustosFixos ?? 0) > 0;
+  const [totalInsumos, totalCompras, totalReceitas, totalProdutos] = contagens;
 
-  const passos = [
-    {
-      feito: true,
-      titulo: "Entrar no sistema",
-      texto: "Pronto! Você já pode instalar no celular pelo menu do navegador.",
-      href: null,
-      icone: Check,
-    },
-    {
-      feito: compras > 0,
-      titulo: "Lançar a primeira compra",
-      texto:
-        insumosComPreco > 0
-          ? `${formatarNumero(insumosComPreco)} de ${formatarNumero(insumosAtivos)} insumos já têm preço.`
-          : "É a compra que dá preço aos insumos. Sem ela, o custo das receitas fica zerado.",
-      href: "/compras",
-      icone: ShoppingCart,
-    },
-    {
-      feito: precificacaoConfigurada,
-      titulo: "Configurar a precificação",
-      texto:
-        "Quanto vale sua hora de trabalho e quanto você gasta de fixo por mês (gás, luz, aluguel).",
-      href: "/ajustes",
-      icone: Sliders,
-    },
-    {
-      feito: receitas > 0,
-      titulo: "Cadastrar a primeira ficha técnica",
-      texto:
-        "Uma receita com os ingredientes e as quantidades. O custo aparece sozinho.",
-      href: "/receitas",
-      icone: ChefHat,
-    },
-    {
-      feito: produtos > 0,
-      titulo: "Criar o primeiro produto",
-      texto: "Aí o sistema te diz por quanto vender pra ter o lucro que você quer.",
-      href: "/produtos",
-      icone: Tags,
-    },
-  ];
+  const cfg = {
+    valorHoraMaoDeObra: config?.valorHoraMaoDeObra?.toString() ?? "0",
+    percentualCustosFixos: config?.percentualCustosFixos?.toString() ?? "0",
+    percentualImpostos: config?.percentualImpostos?.toString() ?? "0",
+    percentualTaxaCartao: config?.percentualTaxaCartao?.toString() ?? "0",
+    margemLucroPadrao: config?.margemLucroPadrao?.toString() ?? "30",
+  };
 
-  const concluidos = passos.filter((p) => p.feito).length;
-  const progresso = Math.round((concluidos / passos.length) * 100);
+  const diasAlerta = config?.diasAlertaValidade ?? 7;
+
+  // Sistema recém-instalado: guia em vez de painel vazio
+  const aindaVazio = totalCompras === 0 && totalReceitas === 0;
+
+  if (aindaVazio) {
+    return (
+      <PrimeirosPassos
+        totalInsumos={totalInsumos}
+        temCompra={totalCompras > 0}
+        temReceita={totalReceitas > 0}
+        temProduto={totalProdutos > 0}
+        precificacaoConfigurada={
+          Number(config?.valorHoraMaoDeObra ?? 0) > 0 ||
+          Number(config?.percentualCustosFixos ?? 0) > 0
+        }
+      />
+    );
+  }
+
+  // ----------------------------------------------------------- alertas ----
+  const acabando = insumos
+    .map((i) => {
+      const saldo = i.lotes.reduce((t, l) => t + Number(l.quantidadeRestante), 0);
+      return {
+        ...i,
+        saldo,
+        situacao: situacaoEstoque(saldo, Number(i.estoqueMinimo)),
+      };
+    })
+    .filter((i) => i.situacao !== "ok");
+
+  const vencendo = insumos
+    .flatMap((i) =>
+      i.lotes
+        .filter((l) => l.validade)
+        .map((l) => ({
+          insumoId: i.id,
+          nome: i.nome,
+          unidadeBase: i.unidadeBase,
+          quantidade: Number(l.quantidadeRestante),
+          validade: l.validade!,
+          situacao: situacaoValidade(l.validade, diasAlerta),
+        })),
+    )
+    .filter((l) => l.situacao !== "ok")
+    .sort((a, b) => a.validade.getTime() - b.validade.getTime());
+
+  const noPrejuizo = produtos
+    .map((produto) => {
+      const custo = custoDeProduto(produto, base);
+      const sugestao = calcularPrecoSugerido(
+        {
+          custoIngredientes: custo.custoIngredientes,
+          custoEmbalagem: produto.custoEmbalagem.toString(),
+          tempoPreparoMin: custo.tempoTotalMin,
+          margemAlvo: produto.margemAlvo?.toString() ?? null,
+        },
+        cfg,
+      );
+      const analise = analisarPreco(
+        produto.precoVenda.toString(),
+        sugestao.custoDireto,
+        cfg,
+        produto.margemAlvo?.toString() ?? null,
+      );
+
+      return { produto, analise };
+    })
+    .filter((p) => p.analise.situacao === "prejuizo");
+
+  const vencidas = pendentes.filter((l) => l.dataVencimento < hoje);
+
+  // ------------------------------------------------------------ números ---
+  const entrou = doMes
+    .filter((l) => l.tipo === "RECEITA")
+    .reduce((t, l) => t + Number(l.valor), 0);
+  const saiu = doMes
+    .filter((l) => l.tipo === "DESPESA")
+    .reduce((t, l) => t + Number(l.valor), 0);
+
+  const temAlerta =
+    acabando.length > 0 ||
+    vencendo.length > 0 ||
+    noPrejuizo.length > 0 ||
+    vencidas.length > 0;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      {/* ---------------------------------------------------------- boas-vindas */}
-      <Card className="border-gold-hairline from-sage-soft/60 to-card bg-gradient-to-br">
-        <CardContent className="py-7">
-          <Badge variant="secondary" className="mb-3">
-            Sistema recém-instalado
-          </Badge>
-
-          <h2 className="text-2xl font-semibold">Bem-vinda, Simone!</h2>
-
-          <p className="text-muted-foreground mt-2 max-w-2xl text-sm">
-            O sistema já veio com{" "}
-            <strong className="text-foreground">
-              {formatarNumero(insumosAtivos)} insumos
-            </strong>{" "}
-            de confeitaria cadastrados, com as unidades e medidas caseiras (xícara,
-            colher, lata) já configuradas. Falta só dizer quanto você paga em cada
-            um — e isso acontece quando você lança a primeira compra.
-          </p>
-
-          <div className="mt-6 max-w-md space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Primeiros passos</span>
-              <span className="font-medium">
-                {concluidos} de {passos.length}
-              </span>
-            </div>
-            <Progress value={progresso} className="h-2" />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ------------------------------------------------------- passo a passo */}
-      <section>
-        <h2 className="mb-3 text-lg font-semibold">Comece por aqui</h2>
-
-        <div className="space-y-2.5">
-          {passos.map((passo) => {
-            const Icone = passo.icone;
-
-            const conteudo = (
-              <div
-                className={cn(
-                  "flex items-start gap-4 rounded-xl border p-4 transition-colors",
-                  passo.feito
-                    ? "bg-success-soft/40 border-success/25"
-                    : "bg-card hover:border-primary/40 hover:bg-accent/40",
-                )}
-              >
-                <div
-                  className={cn(
-                    "mt-0.5 shrink-0 rounded-full p-2",
-                    passo.feito
-                      ? "bg-success text-success-foreground"
-                      : "bg-accent text-primary",
-                  )}
-                >
-                  <Icone className="size-4" />
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <p
-                    className={cn(
-                      "text-sm font-medium",
-                      passo.feito && "text-muted-foreground line-through",
-                    )}
-                  >
-                    {passo.titulo}
-                  </p>
-                  <p className="text-muted-foreground mt-0.5 text-sm">
-                    {passo.texto}
-                  </p>
-                </div>
-
-                {!passo.feito && passo.href ? (
-                  <ArrowRight className="text-muted-foreground mt-2 size-4 shrink-0" />
-                ) : null}
-              </div>
-            );
-
-            return passo.href && !passo.feito ? (
-              <Link key={passo.titulo} href={passo.href} className="block">
-                {conteudo}
-              </Link>
-            ) : (
-              <div key={passo.titulo}>{conteudo}</div>
-            );
-          })}
-        </div>
+    <div className="mx-auto max-w-5xl space-y-5">
+      {/* ------------------------------------------------------- números */}
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+        <Numero titulo="Entrou este mês" valor={entrou} className="text-success" />
+        <Numero titulo="Saiu este mês" valor={saiu} />
+        <Numero
+          titulo="Sobrou"
+          valor={entrou - saiu}
+          className={entrou - saiu < 0 ? "text-danger" : "text-success"}
+          destaque
+        />
       </section>
 
-      {/* ------------------------------------------------------------- números */}
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <CartaoNumero
-          titulo="Insumos"
-          valor={insumosAtivos}
-          detalhe={`${formatarNumero(insumosComPreco)} com preço`}
-          href="/insumos"
-          icone={Wheat}
-        />
-        <CartaoNumero
-          titulo="Compras"
-          valor={compras}
-          detalhe="notas lançadas"
-          href="/compras"
-          icone={ShoppingCart}
-        />
-        <CartaoNumero
-          titulo="Fichas técnicas"
-          valor={receitas}
-          detalhe="receitas ativas"
-          href="/receitas"
-          icone={ChefHat}
-        />
-        <CartaoNumero
-          titulo="Produtos"
-          valor={produtos}
-          detalhe="à venda"
-          href="/produtos"
-          icone={Tags}
-        />
+      {/* ------------------------------------------------------- alertas */}
+      {temAlerta ? (
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold">Precisa da sua atenção</h2>
+
+          {noPrejuizo.length > 0 ? (
+            <Alerta
+              tom="danger"
+              icone={TrendingDown}
+              titulo={`${noPrejuizo.length} ${noPrejuizo.length === 1 ? "produto vendido" : "produtos vendidos"} no prejuízo`}
+              texto={noPrejuizo.map((p) => p.produto.nome).join(", ")}
+              href="/produtos"
+              acao="Ver preços"
+            />
+          ) : null}
+
+          {vencidas.length > 0 ? (
+            <Alerta
+              tom="danger"
+              icone={CalendarClock}
+              titulo={`${vencidas.length} ${vencidas.length === 1 ? "conta vencida" : "contas vencidas"}`}
+              texto={formatarMoeda(
+                vencidas.reduce((t, l) => t + Number(l.valor), 0),
+              )}
+              href="/financeiro"
+              acao="Ver contas"
+            />
+          ) : null}
+
+          {vencendo.length > 0 ? (
+            <Alerta
+              tom="warning"
+              icone={CalendarClock}
+              titulo={`${vencendo.length} ${vencendo.length === 1 ? "lote vencendo" : "lotes vencendo"}`}
+              texto={vencendo
+                .slice(0, 3)
+                .map(
+                  (l) =>
+                    `${l.nome} (${formatarDataRelativa(l.validade)})`,
+                )
+                .join(", ")}
+              href="/estoque"
+              acao="Ver estoque"
+            />
+          ) : null}
+
+          {acabando.length > 0 ? (
+            <Alerta
+              tom="warning"
+              icone={ShoppingCart}
+              titulo={`${acabando.length} ${acabando.length === 1 ? "insumo acabando" : "insumos acabando"}`}
+              texto={acabando
+                .slice(0, 4)
+                .map(
+                  (i) =>
+                    `${i.nome} (${formatarQuantidade(i.saldo, i.unidadeBase)})`,
+                )
+                .join(", ")}
+              href="/estoque"
+              acao="Lista de compras"
+            />
+          ) : null}
+        </section>
+      ) : (
+        <Card className="border-success/25 bg-success-soft/30">
+          <CardContent className="py-6 text-center">
+            <p className="font-medium">Tudo em ordem por aqui.</p>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Nenhum insumo acabando, nenhuma conta vencida e nenhum produto no
+              prejuízo.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ------------------------------------------------------- atalhos */}
+      <section>
+        <h2 className="mb-3 text-lg font-semibold">O que você quer fazer?</h2>
+
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Atalho
+            href="/compras/nova"
+            icone={ShoppingCart}
+            titulo="Lancei uma compra"
+            texto="Atualiza os preços"
+          />
+          <Atalho
+            href="/producao/nova"
+            icone={CookingPot}
+            titulo="Produzi hoje"
+            texto="Baixa o estoque"
+          />
+          <Atalho
+            href="/receitas/nova"
+            icone={ChefHat}
+            titulo="Nova receita"
+            texto="Calcula o custo"
+          />
+          <Atalho
+            href="/produtos"
+            icone={Tags}
+            titulo="Ver meus preços"
+            texto={`${formatarNumero(totalProdutos)} ${totalProdutos === 1 ? "produto" : "produtos"}`}
+          />
+        </div>
       </section>
     </div>
   );
 }
 
-function CartaoNumero({
+function Numero({
   titulo,
   valor,
-  detalhe,
-  href,
-  icone: Icone,
+  className,
+  destaque,
 }: {
   titulo: string;
   valor: number;
-  detalhe: string;
+  className?: string;
+  destaque?: boolean;
+}) {
+  return (
+    <Card className={cn(destaque && "border-gold-hairline")}>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-muted-foreground text-xs font-medium">
+          {titulo}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p className={cn("num text-2xl font-semibold", className)}>
+          {formatarMoeda(valor)}
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function Alerta({
+  tom,
+  icone: Icone,
+  titulo,
+  texto,
+  href,
+  acao,
+}: {
+  tom: "danger" | "warning";
+  icone: React.ComponentType<{ className?: string }>;
+  titulo: string;
+  texto: string;
+  href: string;
+  acao: string;
+}) {
+  return (
+    <Link href={href} className="block">
+      <Card
+        className={cn(
+          "transition-colors",
+          tom === "danger"
+            ? "border-danger/30 bg-danger-soft/25 hover:border-danger/50"
+            : "border-warning/30 bg-warning-soft/25 hover:border-warning/50",
+        )}
+      >
+        <CardContent className="flex items-start gap-3 py-4">
+          <div
+            className={cn(
+              "mt-0.5 shrink-0 rounded-full p-2",
+              tom === "danger"
+                ? "bg-danger text-danger-foreground"
+                : "bg-warning text-warning-foreground",
+            )}
+          >
+            <Icone className="size-4" />
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium">{titulo}</p>
+            <p className="text-muted-foreground truncate text-xs">{texto}</p>
+          </div>
+
+          <span className="text-muted-foreground mt-1 flex shrink-0 items-center gap-1 text-xs">
+            {acao}
+            <ArrowRight className="size-3.5" />
+          </span>
+        </CardContent>
+      </Card>
+    </Link>
+  );
+}
+
+function Atalho({
+  href,
+  icone: Icone,
+  titulo,
+  texto,
+}: {
   href: string;
   icone: React.ComponentType<{ className?: string }>;
+  titulo: string;
+  texto: string;
 }) {
   return (
     <Link href={href}>
       <Card className="hover:border-primary/40 h-full transition-colors">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-muted-foreground flex items-center gap-2 text-xs font-medium">
-            <Icone className="text-primary size-3.5" />
-            {titulo}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="num text-2xl font-semibold">{formatarNumero(valor)}</p>
-          <p className="text-muted-foreground mt-0.5 text-xs">{detalhe}</p>
+        <CardContent className="py-4">
+          <Icone className="text-primary mb-2 size-5" />
+          <p className="text-sm font-medium">{titulo}</p>
+          <p className="text-muted-foreground text-xs">{texto}</p>
         </CardContent>
       </Card>
     </Link>

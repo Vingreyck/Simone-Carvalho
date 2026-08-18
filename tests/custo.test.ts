@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   ReceitaCiclicaError,
   calcularCustoReceita,
+  expandirEmInsumos,
   receitasAfetadasPor,
   type InsumoParaCusto,
   type ReceitaParaCusto,
@@ -291,5 +292,96 @@ describe("receitasAfetadasPor", () => {
   it("não marca receita que não usa o insumo", () => {
     const afetadas = receitasAfetadasPor("choco", mapa(recheio, bolo, torta));
     expect(afetadas).not.toContain("torta");
+  });
+});
+
+describe("expandirEmInsumos", () => {
+  const recheio: ReceitaParaCusto = {
+    id: "recheio",
+    nome: "Recheio",
+    rendimentoQuantidade: 800,
+    rendimentoUnidade: "g",
+    itens: [
+      { insumoId: "leitecond", quantidadeBase: 790 },
+      { insumoId: "choco", quantidadeBase: 10 },
+    ],
+  };
+
+  const bolo: ReceitaParaCusto = {
+    id: "bolo",
+    nome: "Bolo",
+    rendimentoQuantidade: 1,
+    rendimentoUnidade: "bolo",
+    itens: [
+      { insumoId: "farinha", quantidadeBase: 500 },
+      { subReceitaId: "recheio", quantidadeBase: 400 }, // metade do recheio
+    ],
+  };
+
+  function mapa2(...rs: ReceitaParaCusto[]) {
+    return new Map(rs.map((r) => [r.id, r]));
+  }
+
+  it("achata a sub-receita na fração usada", () => {
+    const n = expandirEmInsumos("bolo", 1, mapa2(recheio, bolo), insumos);
+    const leite = n.find((x) => x.insumoId === "leitecond")!;
+
+    // usou 400 de 800 = metade → 790 ÷ 2 = 395
+    expect(leite.quantidadeBase.toNumber()).toBeCloseTo(395, 10);
+  });
+
+  it("multiplica tudo pela quantidade de receitas produzidas", () => {
+    const n = expandirEmInsumos("bolo", 3, mapa2(recheio, bolo), insumos);
+    const farinha = n.find((x) => x.insumoId === "farinha")!;
+
+    expect(farinha.quantidadeBase.toNumber()).toBeCloseTo(1500, 10);
+  });
+
+  it("aceita meia receita", () => {
+    const n = expandirEmInsumos("bolo", "0.5", mapa2(recheio, bolo), insumos);
+    const farinha = n.find((x) => x.insumoId === "farinha")!;
+
+    expect(farinha.quantidadeBase.toNumber()).toBeCloseTo(250, 10);
+  });
+
+  it("soma o mesmo insumo vindo de caminhos diferentes", () => {
+    // A farinha aparece direto no bolo E dentro da cobertura
+    const cobertura: ReceitaParaCusto = {
+      id: "cobertura",
+      nome: "Cobertura",
+      rendimentoQuantidade: 100,
+      rendimentoUnidade: "g",
+      itens: [{ insumoId: "farinha", quantidadeBase: 100 }],
+    };
+    const boloDuplo: ReceitaParaCusto = {
+      id: "duplo",
+      nome: "Bolo duplo",
+      rendimentoQuantidade: 1,
+      rendimentoUnidade: "bolo",
+      itens: [
+        { insumoId: "farinha", quantidadeBase: 500 },
+        { subReceitaId: "cobertura", quantidadeBase: 100 },
+      ],
+    };
+
+    const n = expandirEmInsumos("duplo", 1, mapa2(cobertura, boloDuplo), insumos);
+
+    expect(n.filter((x) => x.insumoId === "farinha")).toHaveLength(1);
+    expect(n[0]!.quantidadeBase.toNumber()).toBeCloseTo(600, 10);
+  });
+
+  it("barra ciclo também na expansão", () => {
+    const a: ReceitaParaCusto = {
+      id: "a", nome: "A", rendimentoQuantidade: 1, rendimentoUnidade: "un",
+      itens: [{ subReceitaId: "b", quantidadeBase: 1 }],
+    };
+    const b: ReceitaParaCusto = {
+      id: "b", nome: "B", rendimentoQuantidade: 1, rendimentoUnidade: "un",
+      itens: [{ subReceitaId: "a", quantidadeBase: 1 }],
+    };
+
+    expect(() => expandirEmInsumos("a", 1, mapa2(a, b), insumos)).toThrow(
+      ReceitaCiclicaError,
+    );
   });
 });

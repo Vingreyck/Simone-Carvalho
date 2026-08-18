@@ -188,6 +188,97 @@ function calcular(
   };
 }
 
+export type NecessidadeDeInsumo = {
+  insumoId: string;
+  nome: string;
+  unidadeBase: string;
+  quantidadeBase: Decimal;
+};
+
+/**
+ * Achata a receita numa lista de insumos com a quantidade total necessária.
+ *
+ * É o que a produção precisa: pra fazer 2 bolos de brigadeiro, quanto de leite
+ * condensado sai do estoque no total — somando o que vai na massa, no recheio
+ * e na cobertura, mesmo que cada um seja uma sub-receita diferente.
+ *
+ * @param vezes quantas receitas cheias serão produzidas (aceita 0,5 = meia receita)
+ */
+export function expandirEmInsumos(
+  receitaId: string,
+  vezes: Decimal | number | string,
+  receitas: Map<string, ReceitaParaCusto>,
+  insumos: Map<string, InsumoParaCusto>,
+): NecessidadeDeInsumo[] {
+  const acumulado = new Map<string, Decimal>();
+
+  acumular(receitaId, new Decimal(vezes), receitas, acumulado, []);
+
+  return [...acumulado.entries()]
+    .map(([insumoId, quantidadeBase]) => {
+      const insumo = insumos.get(insumoId);
+      return {
+        insumoId,
+        nome: insumo?.nome ?? "Insumo removido",
+        unidadeBase: insumo?.unidadeBase ?? "G",
+        quantidadeBase,
+      };
+    })
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+}
+
+function acumular(
+  receitaId: string,
+  multiplicador: Decimal,
+  receitas: Map<string, ReceitaParaCusto>,
+  acumulado: Map<string, Decimal>,
+  caminho: string[],
+) {
+  const receita = receitas.get(receitaId);
+  if (!receita) throw new ReceitaNaoEncontradaError(receitaId);
+
+  if (caminho.includes(receitaId)) {
+    const nomes = [...caminho, receitaId].map(
+      (id) => receitas.get(id)?.nome ?? id,
+    );
+    throw new ReceitaCiclicaError(nomes);
+  }
+
+  const caminhoAtual = [...caminho, receitaId];
+
+  for (const item of receita.itens) {
+    const quantidade = new Decimal(item.quantidadeBase);
+
+    if (item.insumoId) {
+      const total = quantidade.times(multiplicador);
+      acumulado.set(
+        item.insumoId,
+        (acumulado.get(item.insumoId) ?? new Decimal(0)).plus(total),
+      );
+      continue;
+    }
+
+    if (item.subReceitaId) {
+      const sub = receitas.get(item.subReceitaId);
+      if (!sub) throw new ReceitaNaoEncontradaError(item.subReceitaId);
+
+      // Usar 400 g de um recheio que rende 800 g = meia receita do recheio
+      const rendimentoSub = new Decimal(sub.rendimentoQuantidade);
+      const fracao = rendimentoSub.greaterThan(0)
+        ? quantidade.dividedBy(rendimentoSub)
+        : new Decimal(0);
+
+      acumular(
+        item.subReceitaId,
+        fracao.times(multiplicador),
+        receitas,
+        acumulado,
+        caminhoAtual,
+      );
+    }
+  }
+}
+
 /**
  * Descobre quais receitas seriam afetadas se um insumo mudasse de preço,
  * incluindo as que só usam ele através de uma sub-receita.

@@ -114,7 +114,7 @@ tests/                 testes de cálculo
 | 0 | Fundação, login, layout, PWA, deploy | ✅ pronta |
 | 1 | Insumos, Compras, Estoque | ✅ pronta |
 | 2 | Fichas técnicas e Precificação | ✅ pronta |
-| 3 | Produção e Financeiro | ⏳ a construir |
+| 3 | Produção e Financeiro | ✅ pronta |
 | 4 | Vendas e Encomendas | ⏳ a construir |
 | 5 | Câmeras ao vivo | ⏳ a construir |
 

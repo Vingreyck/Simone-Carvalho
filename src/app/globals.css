@@ -140,12 +140,15 @@
   --info-foreground: oklch(0.9885 0.008 100);
   --info-soft: oklch(0.9445 0.032 249);
 
-  /* Série categórica — revisada na fase dos gráficos */
-  --chart-1: oklch(0.6285 0.1195 88);
-  --chart-2: oklch(0.5825 0.0745 133);
-  --chart-3: oklch(0.5185 0.1265 190);
-  --chart-4: oklch(0.5265 0.1195 285);
-  --chart-5: oklch(0.5885 0.1495 35);
+  /* Série categórica — validada nos seis checks (contraste, croma, daltonismo).
+     A ordem é o mecanismo de segurança: nunca reordenar nem gerar cor nova.
+     Verde e terracota ficam separados de propósito — adjacentes, colidem
+     em deuteranopia. Pior par adjacente: ΔE 18,9 (alvo ≥ 8). */
+  --chart-1: oklch(0.66 0.13 88); /* dourado da marca */
+  --chart-2: oklch(0.52 0.14 240); /* azul */
+  --chart-3: oklch(0.45 0.12 150); /* verde */
+  --chart-4: oklch(0.55 0.16 300); /* roxo */
+  --chart-5: oklch(0.62 0.16 30); /* terracota */
 
   --sidebar: oklch(0.9505 0.0225 116);
   --sidebar-foreground: oklch(0.3232 0.038 114.6);
@@ -208,11 +211,13 @@
   --info-foreground: oklch(0.2065 0.025 248);
   --info-soft: oklch(0.2925 0.048 248);
 
-  --chart-1: oklch(0.7885 0.1305 92);
-  --chart-2: oklch(0.7285 0.0885 133);
-  --chart-3: oklch(0.7025 0.1195 190);
-  --chart-4: oklch(0.6905 0.1275 285);
-  --chart-5: oklch(0.7305 0.1495 38);
+  /* Passos próprios do modo escuro — não é inversão automática do claro.
+     Validado contra a superfície #202119. Pior par adjacente: ΔE 19,0. */
+  --chart-1: oklch(0.66 0.13 88);
+  --chart-2: oklch(0.6 0.14 240);
+  --chart-3: oklch(0.55 0.13 150);
+  --chart-4: oklch(0.61 0.17 300);
+  --chart-5: oklch(0.63 0.16 30);
 
   --sidebar: oklch(0.2245 0.0155 115);
   --sidebar-foreground: oklch(0.9315 0.0195 112);
