@@ -24,6 +24,8 @@ export type ReceitaParaCusto = {
   nome: string;
   rendimentoQuantidade: Decimal | number | string;
   rendimentoUnidade: string;
+  /** Usado pra ratear a mão de obra entre as unidades produzidas */
+  tempoPreparoMin?: number;
   itens: ItemDeReceita[];
 };
 
