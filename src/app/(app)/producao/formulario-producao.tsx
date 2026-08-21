@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, LoaderCircle, TriangleAlert } from "lucide-react";
+import { Check, LoaderCircle, RotateCcw, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 
 import { formatarMoeda, lerNumeroBR } from "@/lib/format";
@@ -28,6 +28,7 @@ import {
   registrarProducao,
   type Previsao,
   type Resultado,
+  type UltimaProducao,
 } from "./acoes";
 
 export type ReceitaProducao = {
@@ -39,8 +40,10 @@ export type ReceitaProducao = {
 
 export function FormularioProducao({
   receitas,
+  ultima,
 }: {
   receitas: ReceitaProducao[];
+  ultima: UltimaProducao | null;
 }) {
   const router = useRouter();
   const [estado, acao, enviando] = useActionState<Resultado, FormData>(
@@ -99,6 +102,35 @@ export function FormularioProducao({
   return (
     <form action={acao} className="space-y-5">
       <input type="hidden" name="receitaId" value={receitaId} />
+
+      {/* Atalho pro caso mais comum: repetir o que fez da última vez */}
+      {ultima && !receitaId ? (
+        <Card className="border-gold-hairline bg-accent/20">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
+            <div className="min-w-0">
+              <p className="text-sm font-medium">Fez o de sempre?</p>
+              <p className="text-muted-foreground truncate text-xs">
+                Da última vez: {ultima.quantidade}{" "}
+                {ultima.quantidade === 1 ? "receita" : "receitas"} de{" "}
+                {ultima.receitaNome}
+              </p>
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="bg-card shrink-0"
+              onClick={() => {
+                setReceitaId(ultima.receitaId);
+                setQuantidade(String(ultima.quantidade));
+              }}
+            >
+              <RotateCcw className="size-4" />
+              Repetir
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>

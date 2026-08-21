@@ -40,6 +40,7 @@ export default async function PaginaEditarReceita({
       <EditorReceita
         insumos={opcoes.insumos}
         receitas={opcoes.receitas}
+        frequentes={opcoes.frequentes}
         receita={{
           id: receita.id,
           nome: receita.nome,

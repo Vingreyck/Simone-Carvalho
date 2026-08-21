@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { carregarBaseDeCusto, custoSeguro } from "@/server/custos";
+import { insumosMaisUsados } from "@/server/frequentes";
 
 import type {
   InsumoOpcao,
@@ -13,8 +14,9 @@ import type {
 export async function carregarOpcoesDoEditor(excluirReceitaId?: string): Promise<{
   insumos: InsumoOpcao[];
   receitas: ReceitaOpcao[];
+  frequentes: string[];
 }> {
-  const [insumos, receitas, base] = await Promise.all([
+  const [insumos, receitas, base, frequentes] = await Promise.all([
     prisma.insumo.findMany({
       where: { ativo: true },
       orderBy: { nome: "asc" },
@@ -36,9 +38,11 @@ export async function carregarOpcoesDoEditor(excluirReceitaId?: string): Promise
       select: { id: true, nome: true, rendimentoUnidade: true },
     }),
     carregarBaseDeCusto(),
+    insumosMaisUsados(),
   ]);
 
   return {
+    frequentes,
     insumos: insumos.map((i) => ({
       id: i.id,
       nome: i.nome,

@@ -2,6 +2,8 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
 import { prisma } from "@/lib/db";
+import { iaEstaConfigurada } from "@/lib/ia/cliente";
+import { insumosMaisUsados } from "@/server/frequentes";
 import { Button } from "@/components/ui/button";
 import { CabecalhoPagina } from "@/components/cabecalho-pagina";
 
@@ -10,7 +12,7 @@ import { FormularioCompra, type InsumoDoFormulario } from "./formulario-compra";
 export const dynamic = "force-dynamic";
 
 export default async function PaginaNovaCompra() {
-  const [insumos, fornecedores] = await Promise.all([
+  const [insumos, fornecedores, frequentes] = await Promise.all([
     prisma.insumo.findMany({
       where: { ativo: true },
       orderBy: { nome: "asc" },
@@ -31,6 +33,7 @@ export default async function PaginaNovaCompra() {
       orderBy: { nome: "asc" },
       select: { id: true, nome: true },
     }),
+    insumosMaisUsados(),
   ]);
 
   const lista: InsumoDoFormulario[] = insumos.map((i) => ({
@@ -59,7 +62,12 @@ export default async function PaginaNovaCompra() {
         descricao="Digite do jeito que está na embalagem. O sistema converte e atualiza o preço dos insumos sozinho."
       />
 
-      <FormularioCompra insumos={lista} fornecedores={fornecedores} />
+      <FormularioCompra
+        insumos={lista}
+        fornecedores={fornecedores}
+        iaConfigurada={iaEstaConfigurada()}
+        frequentes={frequentes}
+      />
     </div>
   );
 }

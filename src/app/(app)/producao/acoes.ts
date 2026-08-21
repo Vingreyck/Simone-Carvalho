@@ -362,3 +362,32 @@ function revalidarTudo() {
   revalidatePath("/insumos");
   revalidatePath("/");
 }
+
+export type UltimaProducao = {
+  receitaId: string;
+  receitaNome: string;
+  quantidade: number;
+};
+
+/**
+ * A última produção, pra repetir num toque.
+ *
+ * Ela produz quase sempre a mesma coisa: a massa do dia, o recheio da semana.
+ * Escolher receita e digitar quantidade toda vez é atrito puro.
+ */
+export async function ultimaProducao(): Promise<UltimaProducao | null> {
+  await exigirSessao();
+
+  const producao = await prisma.producao.findFirst({
+    orderBy: { criadoEm: "desc" },
+    include: { receita: { select: { id: true, nome: true, ativo: true } } },
+  });
+
+  if (!producao || !producao.receita.ativo) return null;
+
+  return {
+    receitaId: producao.receita.id,
+    receitaNome: producao.receita.nome,
+    quantidade: Number(producao.quantidade),
+  };
+}

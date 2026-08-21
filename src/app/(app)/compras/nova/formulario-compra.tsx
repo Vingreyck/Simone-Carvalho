@@ -13,6 +13,7 @@ import {
 } from "@/lib/unidades";
 import { formatarMoeda, formatarMoedaPrecisa, lerNumeroBR } from "@/lib/format";
 import { formatarQuantidade } from "@/lib/unidades";
+import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +32,8 @@ import {
 import { SeletorInsumo } from "@/components/seletor-insumo";
 
 import { lancarCompra, type Resultado } from "../acoes";
+import { aprenderApelidos } from "./acoes-ia";
+import { AtalhosCompra, type ResultadoDoAtalho } from "./atalhos-compra";
 
 export type InsumoDoFormulario = {
   id: string;
@@ -44,6 +47,10 @@ export type InsumoDoFormulario = {
 type Linha = {
   chave: string;
   insumoId: string | null;
+  /** Texto original do cupom — vira apelido aprendido quando ela confirma */
+  descricaoOriginal?: string;
+  /** Palpite de casamento incerto: destaca a linha pra ela olhar */
+  incerto?: boolean;
   quantidadeEmbalagens: string;
   tamanhoEmbalagem: string;
   unidadeEmbalagem: string;
@@ -66,9 +73,13 @@ function linhaVazia(): Linha {
 export function FormularioCompra({
   insumos,
   fornecedores,
+  iaConfigurada,
+  frequentes,
 }: {
   insumos: InsumoDoFormulario[];
   fornecedores: { id: string; nome: string }[];
+  iaConfigurada: boolean;
+  frequentes: string[];
 }) {
   const router = useRouter();
   const [estado, acao, enviando] = useActionState<Resultado, FormData>(
@@ -125,6 +136,43 @@ export function FormularioCompra({
     );
   }
 
+  /**
+   * Recebe o resultado de qualquer atalho (foto, repetir, lista) e preenche o
+   * formulário. Substitui as linhas em vez de somar: ela pediu pra começar
+   * daquele jeito.
+   */
+  function preencherComAtalho(resultado: ResultadoDoAtalho) {
+    setLinhas(
+      resultado.itens.map((item) => ({
+        chave: crypto.randomUUID(),
+        insumoId: item.insumoId,
+        descricaoOriginal: item.descricao,
+        incerto: Boolean(item.insumoId) && !item.confiante,
+        quantidadeEmbalagens: String(item.quantidade || 1),
+        tamanhoEmbalagem: item.tamanhoEmbalagem
+          ? String(item.tamanhoEmbalagem)
+          : "",
+        unidadeEmbalagem: item.unidade,
+        valorTotal: item.valorTotal ? String(item.valorTotal) : "",
+        validade: "",
+      })),
+    );
+
+    if (resultado.fornecedor) {
+      const conhecido = fornecedores.find(
+        (f) => f.nome.toLowerCase() === resultado.fornecedor!.toLowerCase(),
+      );
+      if (conhecido) setFornecedorId(conhecido.id);
+      else {
+        setFornecedorId("");
+        setNovoFornecedor(resultado.fornecedor);
+      }
+    }
+
+    if (resultado.data) setData(resultado.data);
+    if (resultado.notaFiscal) setNotaFiscal(resultado.notaFiscal);
+  }
+
   const totalItens = linhas.reduce(
     (t, l) => t + lerNumeroBR(l.valorTotal),
     0,
@@ -160,11 +208,25 @@ export function FormularioCompra({
         })),
       }),
     );
+
+    // Ensina como aquele fornecedor escreve cada insumo. Roda em paralelo:
+    // se falhar, a compra não pode deixar de ser lançada por causa disso.
+    const aprender = linhasValidas
+      .filter((l) => l.descricaoOriginal && l.insumoId)
+      .map((l) => ({ descricao: l.descricaoOriginal!, insumoId: l.insumoId! }));
+
+    if (aprender.length > 0) void aprenderApelidos(aprender).catch(() => {});
+
     return acao(formData);
   }
 
   return (
     <form action={enviar} className="space-y-5">
+      <AtalhosCompra
+        iaConfigurada={iaConfigurada}
+        onPreencher={preencherComAtalho}
+      />
+
       {/* --------------------------------------------------------- cabeçalho */}
       <Card>
         <CardHeader>
@@ -240,6 +302,7 @@ export function FormularioCompra({
               indice={indice}
               insumos={insumos}
               insumo={linha.insumoId ? porId.get(linha.insumoId) : undefined}
+              frequentes={frequentes}
               podeRemover={linhas.length > 1}
               onEscolherInsumo={(id) => escolherInsumo(linha.chave, id)}
               onAtualizar={(campo, valor) => atualizar(linha.chave, campo, valor)}
@@ -374,6 +437,7 @@ function LinhaDeItem({
   indice,
   insumos,
   insumo,
+  frequentes,
   podeRemover,
   onEscolherInsumo,
   onAtualizar,
@@ -383,6 +447,7 @@ function LinhaDeItem({
   indice: number;
   insumos: InsumoDoFormulario[];
   insumo?: InsumoDoFormulario;
+  frequentes: string[];
   podeRemover: boolean;
   onEscolherInsumo: (id: string) => void;
   onAtualizar: (campo: keyof Linha, valor: string) => void;
@@ -443,15 +508,30 @@ function LinhaDeItem({
     : [];
 
   return (
-    <Card>
+    <Card className={cn(linha.incerto && "border-warning/50 bg-warning-soft/20")}>
       <CardContent className="space-y-3 py-4">
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1 space-y-2">
             <Label className="text-xs">Item {indice + 1}</Label>
+
+            {/* O texto do cupom fica visível: é contra ele que ela confere */}
+            {linha.descricaoOriginal ? (
+              <p
+                className={cn(
+                  "truncate font-mono text-xs",
+                  linha.incerto ? "text-warning" : "text-muted-foreground",
+                )}
+                title={linha.descricaoOriginal}
+              >
+                {linha.incerto ? "confira: " : ""}
+                {linha.descricaoOriginal}
+              </p>
+            ) : null}
             <SeletorInsumo
               insumos={insumos}
               valor={linha.insumoId}
               onChange={onEscolherInsumo}
+              idsFrequentes={frequentes}
             />
           </div>
 

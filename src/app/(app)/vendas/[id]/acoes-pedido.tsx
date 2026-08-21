@@ -40,11 +40,14 @@ export function AcoesPedido({
   status,
   valorTotal,
   sinalPago,
+  orcamento,
 }: {
   id: string;
   status: StatusPedido;
   valorTotal: number;
   sinalPago: number;
+  /** Botão de mandar o orçamento — vem pronto do servidor */
+  orcamento?: React.ReactNode;
 }) {
   const router = useRouter();
   const [processando, iniciar] = useTransition();
@@ -115,6 +118,8 @@ export function AcoesPedido({
               Recebi {formatarMoeda(falta)}
             </Button>
           ) : null}
+
+          {orcamento}
 
           {status !== "CANCELADO" && status !== "ENTREGUE" ? (
             <Button

@@ -68,6 +68,50 @@ PreçoSugerido = CustoDireto ÷ Divisor
 Não usar "custo × 3" (é o que a maioria faz e erra). Os custos fixos cadastrados
 (gás, luz, aluguel) alimentam o `%CustosFixos` — fecha o ciclo despesa real → preço.
 
+## ⚡ Atalhos de agilidade (Fase 6)
+
+O sistema funcionava, mas cada compra custava ~120 toques. A Fase 6 atacou isso.
+
+### Sem IA (sempre funcionam)
+
+- **Repetir última compra** — traz os itens, com **preço em branco de propósito**
+  (repetir o valor antigo faria o custo parecer certo estando errado).
+- **Colar lista** — `farinha 5kg 28` por linha, interpretado por regex em
+  `interpretarLista`. Sem IA: determinístico e de graça.
+- **Mais usados no topo** dos seletores (`src/server/frequentes.ts`) — uso em
+  receita pesa 2×, porque indica o que ela produz de verdade.
+- **"Fez o de sempre?"** na produção — repete a última num toque.
+- **Orçamento pro WhatsApp** (`src/lib/orcamento.ts`) — gera o texto formatado
+  e o link `wa.me`.
+
+### Com IA (`ANTHROPIC_API_KEY`, opcional)
+
+Modelo **`claude-opus-5`**, `thinking: adaptive`, saída validada por Zod
+(`messages.parse` + `zodOutputFormat`). Três leituras em `src/lib/ia/extracoes.ts`:
+
+1. **Foto do cupom → compra**
+2. **Foto do caderno / texto solto → ficha técnica**
+3. **Conversa do WhatsApp → pedido**
+
+⚠️ **REGRA QUE NÃO SE NEGOCIA: a IA nunca grava.** Toda extração abre no
+formulário normal pra ela conferir. Um "1,5 kg" lido como "15 kg" corromperia o
+custo médio → o preço de todo produto que usa o insumo → e ela não descobriria
+por quê. Sem a chave, os botões de IA somem e o resto funciona igual.
+
+### Casamento texto → insumo (`src/lib/correspondencia.ts`)
+
+"ACUC REFINADO UNIAO 1KG" → "Açúcar refinado". **Não usa IA** — é comparação de
+texto, determinística e instantânea. Dois detalhes que custaram iteração:
+
+- **Prefixo vale 0,9 fixo**, sem penalizar tamanho: abreviação de cupom é sempre
+  bem mais curta que a palavra ("cond" de condensado).
+- **Peso por raridade + piso 1 no denominador.** "leite" aparece em 3 insumos e
+  quase não identifica; "condensado" aparece em 1 e praticamente decide. O piso
+  evita que um insumo só de palavras comuns ("Leite em pó") ganhe nota alta de
+  graça e empate com quem casou a palavra distintiva.
+- Quando ela corrige um casamento, vira `ApelidoInsumo` — naquele texto o
+  sistema nunca mais erra.
+
 ## 🗺️ Fases
 
 | Fase | Módulo | Situação |
@@ -78,6 +122,7 @@ Não usar "custo × 3" (é o que a maioria faz e erra). Os custos fixos cadastra
 | 3 | Produção e Financeiro | ✅ pronta |
 | 4 | Vendas e Encomendas | ✅ pronta |
 | 5 | Câmeras ao vivo | ✅ pronta |
+| 6 | Atalhos de agilidade (IA + sem IA) | ✅ pronta |
 | — | Portal do cliente + WhatsApp | só quando ela pedir |
 
 O `schema.prisma` já cobre **todas** as fases e está migrado. As próximas fases são

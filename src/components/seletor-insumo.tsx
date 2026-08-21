@@ -35,23 +35,36 @@ export function SeletorInsumo({
   valor,
   onChange,
   placeholder = "Escolher insumo...",
+  idsFrequentes = [],
 }: {
   insumos: OpcaoInsumo[];
   valor: string | null;
   onChange: (id: string) => void;
   placeholder?: string;
+  /** Os que ela mais usa — sobem pro topo, na ordem recebida */
+  idsFrequentes?: string[];
 }) {
   const [aberto, setAberto] = useState(false);
   const selecionado = insumos.find((i) => i.id === valor);
 
-  // Agrupa por categoria pra a lista não virar um paredão de 65 nomes
-  const porCategoria = insumos.reduce<Record<string, OpcaoInsumo[]>>(
-    (acc, insumo) => {
+  /**
+   * São 65 insumos, mas ela usa os mesmos dez quase sempre. Deixar os
+   * frequentes no topo economiza rolagem em quase toda linha de compra e de
+   * receita — que é onde o tempo dela some.
+   */
+  const frequentes = idsFrequentes
+    .map((id) => insumos.find((i) => i.id === id))
+    .filter((i): i is OpcaoInsumo => Boolean(i));
+
+  const idsNoTopo = new Set(frequentes.map((i) => i.id));
+
+  // O resto vai agrupado por categoria, pra lista não virar um paredão de nomes
+  const porCategoria = insumos
+    .filter((i) => !idsNoTopo.has(i.id))
+    .reduce<Record<string, OpcaoInsumo[]>>((acc, insumo) => {
       (acc[insumo.categoria] ??= []).push(insumo);
       return acc;
-    },
-    {},
-  );
+    }, {});
 
   return (
     <Popover open={aberto} onOpenChange={setAberto}>
@@ -82,6 +95,29 @@ export function SeletorInsumo({
           <CommandInput placeholder="Digite pra buscar..." />
           <CommandList>
             <CommandEmpty>Nenhum insumo com esse nome.</CommandEmpty>
+
+            {frequentes.length > 0 ? (
+              <CommandGroup heading="Que você mais usa">
+                {frequentes.map((insumo) => (
+                  <CommandItem
+                    key={insumo.id}
+                    value={insumo.nome}
+                    onSelect={() => {
+                      onChange(insumo.id);
+                      setAberto(false);
+                    }}
+                  >
+                    <Check
+                      className={cn(
+                        "size-4",
+                        valor === insumo.id ? "opacity-100" : "opacity-0",
+                      )}
+                    />
+                    {insumo.nome}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ) : null}
 
             {Object.entries(porCategoria).map(([categoria, itens]) => (
               <CommandGroup

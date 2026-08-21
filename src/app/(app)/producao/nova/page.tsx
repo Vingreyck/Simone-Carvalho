@@ -5,12 +5,14 @@ import { prisma } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 import { CabecalhoPagina } from "@/components/cabecalho-pagina";
 
+import { ultimaProducao } from "../acoes";
 import { FormularioProducao } from "../formulario-producao";
 
 export const dynamic = "force-dynamic";
 
 export default async function PaginaNovaProducao() {
-  const receitas = await prisma.receita.findMany({
+  const [receitas, ultima] = await Promise.all([
+    prisma.receita.findMany({
     where: { ativo: true },
     orderBy: { nome: "asc" },
     select: {
@@ -18,8 +20,10 @@ export default async function PaginaNovaProducao() {
       nome: true,
       rendimentoQuantidade: true,
       rendimentoUnidade: true,
-    },
-  });
+      },
+    }),
+    ultimaProducao(),
+  ]);
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -42,6 +46,7 @@ export default async function PaginaNovaProducao() {
           rendimentoQuantidade: Number(r.rendimentoQuantidade),
           rendimentoUnidade: r.rendimentoUnidade,
         }))}
+        ultima={ultima}
       />
     </div>
   );

@@ -96,6 +96,7 @@ model Insumo {
   receitaItens    ReceitaItem[]
   movimentos      MovimentoEstoque[]
   historicoPrecos HistoricoPrecoInsumo[]
+  apelidos        ApelidoInsumo[]
 
   @@index([categoria])
   @@index([ativo])
@@ -669,4 +670,33 @@ model Camera {
   criadoEm DateTime @default(now())
 
   @@map("cameras")
+}
+
+// ===========================================================================
+// APELIDOS APRENDIDOS  (leitura automática de cupom)
+// ===========================================================================
+
+/// Como cada fornecedor escreve o nome de um insumo no cupom.
+///
+/// "ACUC REFINADO UNIAO 1KG" não parece com "Açúcar refinado", e a busca por
+/// semelhança acerta na maioria das vezes mas não sempre. Quando ela corrige
+/// um casamento errado, a correção fica gravada aqui — e naquele fornecedor o
+/// sistema nunca mais erra aquele item.
+model ApelidoInsumo {
+  id       String @id @default(cuid())
+  insumoId String
+
+  /// Texto do cupom já normalizado (minúsculo, sem acento) — é a chave de busca
+  texto String @unique
+
+  /// Como veio escrito, pra ela reconhecer na tela
+  textoOriginal String
+
+  vezesUsado Int      @default(1)
+  criadoEm   DateTime @default(now())
+
+  insumo Insumo @relation(fields: [insumoId], references: [id], onDelete: Cascade)
+
+  @@index([insumoId])
+  @@map("apelidos_insumo")
 }

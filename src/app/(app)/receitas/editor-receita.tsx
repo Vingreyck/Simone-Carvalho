@@ -34,6 +34,8 @@ import {
 import { SeletorInsumo } from "@/components/seletor-insumo";
 
 import { salvarReceita, type Resultado } from "./acoes";
+import { AtalhosReceita } from "./atalhos-receita";
+import type { ReceitaLida } from "./acoes-ia";
 
 export type InsumoOpcao = {
   id: string;
@@ -74,6 +76,10 @@ export type ReceitaExistente = {
 type Linha = {
   chave: string;
   tipo: "insumo" | "sub-receita";
+  /** Como ela escreveu na receita original — some depois que ela confere */
+  descricaoOriginal?: string;
+  /** Palpite de casamento incerto */
+  incerto?: boolean;
   insumoId: string | null;
   subReceitaId: string | null;
   quantidade: string;
@@ -97,10 +103,14 @@ export function EditorReceita({
   insumos,
   receitas,
   receita,
+  iaConfigurada,
+  frequentes = [],
 }: {
   insumos: InsumoOpcao[];
   receitas: ReceitaOpcao[];
   receita?: ReceitaExistente;
+  iaConfigurada?: boolean;
+  frequentes?: string[];
 }) {
   const router = useRouter();
   const [estado, acao, enviando] = useActionState<Resultado, FormData>(
@@ -143,6 +153,33 @@ export function EditorReceita({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estado]);
+
+  /** Preenche o editor com o que a IA leu da foto ou do texto. */
+  function preencherComLeitura(lida: ReceitaLida) {
+    if (lida.nome) setNome(lida.nome);
+    if (lida.rendimentoQuantidade) {
+      setRendimentoQuantidade(String(lida.rendimentoQuantidade));
+    }
+    if (lida.rendimentoUnidade) setRendimentoUnidade(lida.rendimentoUnidade);
+    if (lida.tempoPreparoMin) setTempoPreparoMin(String(lida.tempoPreparoMin));
+    if (lida.modoPreparo) setModoPreparo(lida.modoPreparo);
+
+    if (lida.ingredientes?.length) {
+      setLinhas(
+        lida.ingredientes.map((ing) => ({
+          chave: crypto.randomUUID(),
+          tipo: "insumo" as const,
+          insumoId: ing.insumoId,
+          subReceitaId: null,
+          descricaoOriginal: ing.descricao,
+          incerto: Boolean(ing.insumoId) && !ing.confiante,
+          quantidade: String(ing.quantidade),
+          unidade: ing.unidade,
+          observacao: "",
+        })),
+      );
+    }
+  }
 
   const porInsumo = useMemo(
     () => new Map(insumos.map((i) => [i.id, i])),
@@ -291,6 +328,11 @@ export function EditorReceita({
 
   return (
     <form action={enviar} className="space-y-5">
+      {/* Só ao criar: editando, ela já tem a ficha montada */}
+      {iaConfigurada && !receita ? (
+        <AtalhosReceita onPreencher={preencherComLeitura} />
+      ) : null}
+
       {/* ------------------------------------------------------------ básico */}
       <Card>
         <CardHeader>
@@ -414,6 +456,7 @@ export function EditorReceita({
               subReceita={
                 linha.subReceitaId ? porReceita.get(linha.subReceitaId) : undefined
               }
+              frequentes={frequentes}
               custo={calculo.porLinha.get(linha.chave)}
               podeRemover={linhas.length > 1}
               onEscolherInsumo={(id) => escolherInsumo(linha.chave, id)}
@@ -535,6 +578,7 @@ function LinhaIngrediente({
   receitas,
   insumo,
   subReceita,
+  frequentes,
   custo,
   podeRemover,
   onEscolherInsumo,
@@ -548,6 +592,7 @@ function LinhaIngrediente({
   receitas: ReceitaOpcao[];
   insumo?: InsumoOpcao;
   subReceita?: ReceitaOpcao;
+  frequentes: string[];
   custo?: Decimal;
   podeRemover: boolean;
   onEscolherInsumo: (id: string) => void;
@@ -562,7 +607,12 @@ function LinhaIngrediente({
     : [];
 
   return (
-    <Card className={cn(ehSubReceita && "border-primary/30 bg-accent/20")}>
+    <Card
+      className={cn(
+        ehSubReceita && "border-primary/30 bg-accent/20",
+        linha.incerto && "border-warning/50 bg-warning-soft/20",
+      )}
+    >
       <CardContent className="space-y-3 py-4">
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1 space-y-2">
@@ -579,6 +629,19 @@ function LinhaIngrediente({
                 </>
               )}
             </Label>
+
+            {linha.descricaoOriginal ? (
+              <p
+                className={cn(
+                  "truncate text-xs",
+                  linha.incerto ? "text-warning" : "text-muted-foreground",
+                )}
+                title={linha.descricaoOriginal}
+              >
+                {linha.incerto ? "confira: " : "da receita: "}
+                {linha.descricaoOriginal}
+              </p>
+            ) : null}
 
             {ehSubReceita ? (
               <Select
@@ -602,6 +665,7 @@ function LinhaIngrediente({
                 valor={linha.insumoId}
                 onChange={onEscolherInsumo}
                 placeholder="Escolher ingrediente..."
+                idsFrequentes={frequentes}
               />
             )}
           </div>

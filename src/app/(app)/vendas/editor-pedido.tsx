@@ -9,6 +9,7 @@ import { Decimal } from "decimal.js";
 import type { CanalVenda, StatusPedido } from "@/generated/prisma/enums";
 import { CANAIS, ROTULO_CANAL } from "@/lib/pedidos";
 import { formatarMoeda, lerNumeroBR, normalizarTexto } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,8 @@ import {
 } from "@/components/ui/select";
 
 import { salvarPedido, type Resultado } from "./acoes";
+import { AtalhoWhatsApp } from "./atalho-whatsapp";
+import type { PedidoLido } from "./acoes-ia";
 
 export type ProdutoOpcao = {
   id: string;
@@ -60,6 +63,10 @@ export type PedidoExistente = {
 
 type Linha = {
   chave: string;
+  /** Como a cliente pediu na conversa */
+  descricaoOriginal?: string;
+  /** Palpite de casamento incerto */
+  incerto?: boolean;
   produtoId: string;
   quantidade: string;
   precoUnitario: string;
@@ -82,10 +89,12 @@ export function EditorPedido({
   produtos,
   clientes,
   pedido,
+  iaConfigurada,
 }: {
   produtos: ProdutoOpcao[];
   clientes: ClienteOpcao[];
   pedido?: PedidoExistente;
+  iaConfigurada?: boolean;
 }) {
   const router = useRouter();
   const [estado, acao, enviando] = useActionState<Resultado, FormData>(
@@ -136,6 +145,37 @@ export function EditorPedido({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estado]);
+
+  /** Preenche o pedido com o que a IA leu da conversa. */
+  function preencherComLeitura(lido: PedidoLido) {
+    if (lido.clienteId) {
+      setClienteId(lido.clienteId);
+    } else if (lido.clienteNome) {
+      setClienteId(NOVO_CLIENTE);
+      setNovoCliente(lido.clienteNome);
+      if (lido.telefone) setTelefone(lido.telefone);
+    }
+
+    if (lido.dataEntrega) setDataEntrega(lido.dataEntrega);
+    if (lido.enderecoEntrega) setEnderecoEntrega(lido.enderecoEntrega);
+    if (lido.sinalPago) setSinalPago(String(lido.sinalPago));
+    if (lido.observacao) setObservacao(lido.observacao);
+    setCanal("WHATSAPP");
+
+    if (lido.itens?.length) {
+      setLinhas(
+        lido.itens.map((item) => ({
+          chave: crypto.randomUUID(),
+          descricaoOriginal: item.descricao,
+          incerto: Boolean(item.produtoId) && !item.confiante,
+          produtoId: item.produtoId ?? "",
+          quantidade: String(item.quantidade || 1),
+          precoUnitario: item.precoUnitario ? String(item.precoUnitario) : "",
+          observacao: item.observacao ?? "",
+        })),
+      );
+    }
+  }
 
   const porProduto = useMemo(
     () => new Map(produtos.map((p) => [p.id, p])),
@@ -217,6 +257,11 @@ export function EditorPedido({
 
   return (
     <form action={enviar} className="space-y-5">
+      {/* Só ao criar: editando, o pedido já existe */}
+      {iaConfigurada && !pedido ? (
+        <AtalhoWhatsApp onPreencher={preencherComLeitura} />
+      ) : null}
+
       {/* --------------------------------------------------------- cliente */}
       <Card>
         <CardHeader>
@@ -496,11 +541,25 @@ function LinhaItem({
   );
 
   return (
-    <Card>
+    <Card className={cn(linha.incerto && "border-warning/50 bg-warning-soft/20")}>
       <CardContent className="space-y-3 py-4">
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1 space-y-2">
             <Label className="text-xs">Item {indice + 1}</Label>
+
+            {linha.descricaoOriginal ? (
+              <p
+                className={cn(
+                  "truncate text-xs",
+                  linha.incerto ? "text-warning" : "text-muted-foreground",
+                )}
+                title={linha.descricaoOriginal}
+              >
+                {linha.incerto ? "confira: " : "ela pediu: "}
+                {linha.descricaoOriginal}
+              </p>
+            ) : null}
+
             <Select value={linha.produtoId} onValueChange={onEscolherProduto}>
               <SelectTrigger className="h-11 w-full">
                 <SelectValue placeholder="Escolher produto..." />

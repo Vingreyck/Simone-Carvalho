@@ -11,20 +11,24 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { AcoesPedido } from "./acoes-pedido";
+import { BotaoOrcamento } from "./botao-orcamento";
 
 export const dynamic = "force-dynamic";
 
 export default async function PaginaPedido({ params }: PageProps<"/vendas/[id]">) {
   const { id } = await params;
 
-  const pedido = await prisma.pedido.findUnique({
+  const [pedido, negocio] = await Promise.all([
+    prisma.pedido.findUnique({
     where: { id },
     include: {
       cliente: true,
       itens: { include: { produto: { select: { id: true, nome: true } } } },
       lancamentos: { select: { status: true, valor: true, descricao: true } },
     },
-  });
+    }),
+    prisma.configNegocio.findUnique({ where: { id: "default" } }),
+  ]);
 
   if (!pedido) notFound();
 
@@ -122,6 +126,23 @@ export default async function PaginaPedido({ params }: PageProps<"/vendas/[id]">
         status={pedido.status}
         valorTotal={total}
         sinalPago={sinal}
+        orcamento={
+          <BotaoOrcamento
+            nomeDaDoceria={negocio?.nomeFantasia ?? "Simone Carvalho Doceria"}
+            cliente={pedido.cliente?.nome ?? null}
+            telefone={pedido.cliente?.telefone ?? null}
+            itens={pedido.itens.map((i) => ({
+              nome: i.produto.nome,
+              quantidade: Number(i.quantidade),
+              precoUnitario: Number(i.precoUnitario),
+              observacao: i.observacao,
+            }))}
+            desconto={Number(pedido.desconto)}
+            taxaEntrega={Number(pedido.taxaEntrega)}
+            sinalPago={sinal}
+            dataEntrega={pedido.dataEntrega?.toISOString() ?? null}
+          />
+        }
       />
 
       {/* ------------------------------------------------------------ itens */}

@@ -117,6 +117,7 @@ tests/                 testes de cálculo
 | 3 | Produção e Financeiro | ✅ pronta |
 | 4 | Vendas e Encomendas | ✅ pronta |
 | 5 | Câmeras ao vivo | ✅ pronta |
+| 6 | Atalhos de agilidade | ✅ pronta |
 
 O modelo de dados de **todas** as fases já está no `schema.prisma` e migrado —
 as fases seguintes são só telas e regras em cima dele.
@@ -131,6 +132,7 @@ Um serviço web + um Postgres. Variáveis necessárias:
 |---|---|
 | `DATABASE_URL` | referência ao Postgres do projeto |
 | `AUTH_SECRET` | **outro** valor aleatório, diferente do local |
+| `ANTHROPIC_API_KEY` | opcional — liga os atalhos de leitura por foto e WhatsApp |
 | `SEED_ADMIN_EMAIL` / `SEED_ADMIN_SENHA` | só pro primeiro seed |
 
 O `railway.json` já roda `prisma migrate deploy` antes de subir o app, então as

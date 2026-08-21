@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
 import { carregarOpcoesDoPedido } from "@/server/opcoes-pedido";
+import { iaEstaConfigurada } from "@/lib/ia/cliente";
 import { Button } from "@/components/ui/button";
 import { CabecalhoPagina } from "@/components/cabecalho-pagina";
 
@@ -26,7 +27,11 @@ export default async function PaginaNovoPedido() {
         descricao="Começa como orçamento. Quando a cliente confirmar, vira conta a receber no financeiro."
       />
 
-      <EditorPedido produtos={produtos} clientes={clientes} />
+      <EditorPedido
+        produtos={produtos}
+        clientes={clientes}
+        iaConfigurada={iaEstaConfigurada()}
+      />
     </div>
   );
 }
