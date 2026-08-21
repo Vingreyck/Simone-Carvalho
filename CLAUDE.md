@@ -76,8 +76,8 @@ Não usar "custo × 3" (é o que a maioria faz e erra). Os custos fixos cadastra
 | 1 | Insumos, Compras, Estoque | ✅ pronta |
 | 2 | Fichas técnicas e Precificação | ✅ pronta |
 | 3 | Produção e Financeiro | ✅ pronta |
-| 4 | Vendas e Encomendas | ⏳ próxima |
-| 5 | Câmeras ao vivo | ⏳ |
+| 4 | Vendas e Encomendas | ✅ pronta |
+| 5 | Câmeras ao vivo | ✅ pronta |
 | — | Portal do cliente + WhatsApp | só quando ela pedir |
 
 O `schema.prisma` já cobre **todas** as fases e está migrado. As próximas fases são

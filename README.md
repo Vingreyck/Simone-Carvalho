@@ -115,8 +115,8 @@ tests/                 testes de cálculo
 | 1 | Insumos, Compras, Estoque | ✅ pronta |
 | 2 | Fichas técnicas e Precificação | ✅ pronta |
 | 3 | Produção e Financeiro | ✅ pronta |
-| 4 | Vendas e Encomendas | ⏳ a construir |
-| 5 | Câmeras ao vivo | ⏳ a construir |
+| 4 | Vendas e Encomendas | ✅ pronta |
+| 5 | Câmeras ao vivo | ✅ pronta |
 
 O modelo de dados de **todas** as fases já está no `schema.prisma` e migrado —
 as fases seguintes são só telas e regras em cima dele.

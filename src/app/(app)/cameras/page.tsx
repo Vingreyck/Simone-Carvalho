@@ -1,16 +1,24 @@
-import { EmConstrucao } from "@/components/em-construcao";
+import { prisma } from "@/lib/db";
 
-export default function PaginaCameras() {
-  return (
-    <EmConstrucao
-      fase="Fase 5"
-      titulo="Câmeras da loja"
-      recursos={[
-        "Ver todas as câmeras ao vivo numa tela só",
-        "Abrir uma câmera em tela cheia",
-        "Acessar de qualquer lugar, pelo celular",
-        "Tudo por conexão segura, sem abrir porta no roteador",
-      ]}
-    />
-  );
+import { PainelCameras, type CameraDaLista } from "./painel-cameras";
+
+export const dynamic = "force-dynamic";
+
+export default async function PaginaCameras() {
+  const cameras = await prisma.camera.findMany({
+    orderBy: [{ ordem: "asc" }, { nome: "asc" }],
+  });
+
+  const lista: CameraDaLista[] = cameras.map((c) => ({
+    id: c.id,
+    nome: c.nome,
+    local: c.local,
+    tipo: c.tipo,
+    url: c.url,
+    streamId: c.streamId,
+    ordem: c.ordem,
+    ativo: c.ativo,
+  }));
+
+  return <PainelCameras cameras={lista} />;
 }
