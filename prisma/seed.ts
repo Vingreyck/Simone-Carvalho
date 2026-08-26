@@ -3,7 +3,11 @@ import bcrypt from "bcryptjs";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 import { PrismaClient } from "../src/generated/prisma/client";
-import type { CategoriaInsumo, UnidadeBase } from "../src/generated/prisma/enums";
+import type {
+  Alergeno,
+  CategoriaInsumo,
+  UnidadeBase,
+} from "../src/generated/prisma/enums";
 
 /**
  * Seed do sistema.
@@ -29,6 +33,95 @@ type SeedInsumo = {
   /** nome da unidade caseira → quanto ela vale na unidade base */
   equivalencias?: Record<string, number>;
 };
+
+/**
+ * Alergênicos já preenchidos, pra ela não conferir 65 insumos na mão.
+ *
+ * Aqui só entra o que é **da natureza do ingrediente**: farinha de trigo tem
+ * glúten, leite condensado tem leite, ovo tem ovo. Isso não muda de marca pra
+ * marca, então dá pra afirmar.
+ *
+ * O que NÃO está aqui é de propósito. Fermento em pó, corante, pasta americana
+ * e gelatina mudam de composição conforme o fabricante — fermento químico, por
+ * exemplo, às vezes leva amido de trigo. Esses ficam marcados como "não
+ * conferido" e aparecem numa lista pra ela olhar o rótulo. Chutar um alergênico
+ * aqui seria pior que deixar em branco: ela confiaria no chute.
+ *
+ * O "pode conter" (contaminação cruzada) não é semeado nunca — depende do
+ * rótulo da marca que ela comprou.
+ */
+const ALERGENOS_DO_SEED: Record<string, Alergeno[]> = {
+  // glúten — o item 1 do Anexo inclui a aveia
+  "Farinha de trigo": ["GLUTEN"],
+  "Farinha de trigo integral": ["GLUTEN"],
+  "Aveia em flocos": ["GLUTEN"],
+
+  // castanhas e amendoim, cada um é um item separado da norma
+  "Castanha de caju": ["CASTANHA_DE_CAJU"],
+  Nozes: ["NOZES"],
+  Amendoim: ["AMENDOIM"],
+
+  // leite
+  "Leite integral": ["LEITE"],
+  "Leite condensado": ["LEITE"],
+  "Creme de leite": ["LEITE"],
+  "Creme de leite fresco": ["LEITE"],
+  "Leite em pó": ["LEITE"],
+  "Manteiga sem sal": ["LEITE"],
+  "Cream cheese": ["LEITE"],
+  Requeijão: ["LEITE"],
+  "Iogurte natural": ["LEITE"],
+
+  Ovo: ["OVOS"],
+
+  // chocolate quase sempre leva lecitina de soja; avisar a mais é o lado seguro
+  "Chocolate ao leite": ["LEITE", "SOJA"],
+  "Chocolate branco": ["LEITE", "SOJA"],
+  "Chocolate meio amargo": ["SOJA"],
+  "Chocolate em pó 50%": ["SOJA"],
+  "Achocolatado em pó": ["LEITE", "SOJA"],
+  "Granulado de chocolate": ["SOJA"],
+
+  // gorduras
+  Margarina: ["SOJA"],
+  "Óleo de soja": ["SOJA"],
+  "Gordura vegetal hidrogenada": ["SOJA"],
+
+  // o látex é o item 18 da norma, e entra pela luva
+  "Luva descartável": ["LATEX"],
+};
+
+/**
+ * Insumos que eu confiro como "sem alergênico" — açúcar é açúcar em qualquer
+ * marca. Separado do mapa acima porque lista vazia lá em cima seria confundida
+ * com "esqueci de preencher".
+ */
+const SEM_ALERGENO_CONFERIDO = new Set([
+  "Açúcar refinado",
+  "Açúcar cristal",
+  "Açúcar de confeiteiro",
+  "Açúcar mascavo",
+  "Açúcar demerara",
+  "Mel",
+  "Sal",
+  "Bicarbonato de sódio",
+  "Cacau em pó 100%",
+  "Coco ralado",
+  "Óleo de coco",
+  "Morango",
+  "Banana",
+  "Limão",
+  "Laranja",
+  "Maracujá",
+  // embalagem não encosta em alimento de um jeito que declare alergênico
+  "Caixa para bolo",
+  "Forminha de papel",
+  "Caixa para doces",
+  "Sacola personalizada",
+  "Fita de cetim",
+  "Etiqueta adesiva",
+  "Papel manteiga",
+]);
 
 const INSUMOS: SeedInsumo[] = [
   // ---------------------------------------------------------------- secos
@@ -508,6 +601,10 @@ async function main() {
   let equivalenciasCriadas = 0;
 
   for (const item of INSUMOS) {
+    const alergenos = ALERGENOS_DO_SEED[item.nome] ?? [];
+    const conferido =
+      alergenos.length > 0 || SEM_ALERGENO_CONFERIDO.has(item.nome);
+
     const insumo = await prisma.insumo.upsert({
       where: { nome: item.nome },
       // Não sobrescreve o que ela já ajustou (preço, estoque mínimo, marca).
@@ -517,8 +614,19 @@ async function main() {
         unidadeBase: item.unidadeBase,
         categoria: item.categoria,
         perecivel: item.perecivel ?? false,
+        alergenos,
+        alergenosRevisados: conferido,
       },
     });
+
+    // Banco que já existia veio de um seed sem alergênico. Preenche só quem
+    // ninguém conferiu ainda — assim o que ELA marcou nunca é sobrescrito.
+    if (conferido) {
+      await prisma.insumo.updateMany({
+        where: { nome: item.nome, alergenosRevisados: false },
+        data: { alergenos, alergenosRevisados: true },
+      });
+    }
 
     for (const [nomeEquiv, quantidade] of Object.entries(
       item.equivalencias ?? {},

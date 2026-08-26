@@ -145,6 +145,36 @@ texto, determinística e instantânea. Dois detalhes que custaram iteração:
 - Quando ela corrige um casamento, vira `ApelidoInsumo` — naquele texto o
   sistema nunca mais erra.
 
+## ⚠️ Alergênicos (RDC 26/2015 da ANVISA)
+
+Obrigatório por lei desde 2016. O Anexo lista **18 itens** — a lista é fechada,
+não inventar nem tirar. Item 1 é um grupo só (trigo, centeio, cevada, aveia), por
+isso vira o valor único `GLUTEN`. Item 18 é látex natural (entra pela luva).
+
+Frases exatas dos arts. 6º e 7º: `ALÉRGICOS: CONTÉM x` e `ALÉRGICOS: PODE CONTER x`.
+
+**Como funciona:** ela marca o alergênico **uma vez** no insumo. A ficha técnica
+soma sozinha, entrando nas sub-receitas — que é onde o alergênico se esconde
+(o bolo "só" tem massa e recheio; o leite está lá no fundo do brigadeiro).
+
+**A decisão que sustenta isso:** `alergenosRevisados` existe porque lista vazia é
+ambígua. Açúcar realmente não tem alergênico; insumo recém-cadastrado também
+está vazio — e são coisas MUITO diferentes quando o resultado é aviso de alergia.
+Sem essa marca, o sistema afirmaria "não contém nada" sem ninguém ter olhado.
+Enquanto houver insumo não conferido, a tela mostra o aviso **junto** com a
+ressalva — não escondida, porque lista curta parece tranquilizadora e é aí que
+mora o perigo.
+
+O seed já marca 26 dos 65 insumos (o que é da natureza do ingrediente: farinha
+tem glúten, leite condensado tem leite). Os 16 que variam por marca — fermento
+químico às vezes leva amido de trigo, corante e pasta americana mudam de fórmula —
+ficam **de propósito** como não conferidos. Chutar ali seria pior que deixar em
+branco: ela confiaria no chute. O "pode conter" nunca é semeado: depende do
+rótulo da marca comprada.
+
+Regra invertida em relação ao custo: **na dúvida, avisar a mais**. Custo errado dá
+prejuízo; alergênico esquecido manda alguém pro hospital.
+
 ## 🗺️ Fases
 
 | Fase | Módulo | Situação |

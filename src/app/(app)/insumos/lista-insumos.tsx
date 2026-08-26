@@ -4,7 +4,11 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus, Search, Wheat, X } from "lucide-react";
 
-import type { CategoriaInsumo, UnidadeBase } from "@/generated/prisma/enums";
+import type {
+  Alergeno,
+  CategoriaInsumo,
+  UnidadeBase,
+} from "@/generated/prisma/enums";
 import type { SituacaoEstoque } from "@/lib/estoque";
 import { formatarQuantidade } from "@/lib/unidades";
 import { formatarMoedaPrecisa, normalizarTexto } from "@/lib/format";
@@ -31,6 +35,9 @@ export type InsumoDaLista = {
   perecivel: boolean;
   marcaPreferida: string | null;
   observacao: string | null;
+  alergenos: Alergeno[];
+  alergenosTraco: Alergeno[];
+  alergenosRevisados: boolean;
   ativo: boolean;
   saldo: number;
   situacao: SituacaoEstoque;

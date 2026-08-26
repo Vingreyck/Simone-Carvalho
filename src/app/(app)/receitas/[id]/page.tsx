@@ -12,6 +12,9 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
+import { AvisoAlergenicoCard } from "@/components/aviso-alergenico";
+import { avisoDaReceita } from "@/server/alergenos";
+
 import { BotoesReceita } from "./botoes-receita";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +22,7 @@ export const dynamic = "force-dynamic";
 export default async function PaginaReceita({ params }: PageProps<"/receitas/[id]">) {
   const { id } = await params;
 
-  const [receita, base] = await Promise.all([
+  const [receita, base, aviso] = await Promise.all([
     prisma.receita.findUnique({
       where: { id },
       include: {
@@ -37,6 +40,7 @@ export default async function PaginaReceita({ params }: PageProps<"/receitas/[id
       },
     }),
     carregarBaseDeCusto(),
+    avisoDaReceita(id),
   ]);
 
   if (!receita) notFound();
@@ -211,6 +215,9 @@ export default async function PaginaReceita({ params }: PageProps<"/receitas/[id
           </ul>
         </CardContent>
       </Card>
+
+      {/* ----------------------------------------------------- alergênicos */}
+      <AvisoAlergenicoCard aviso={aviso} />
 
       {/* --------------------------------------------------------- preparo */}
       {receita.modoPreparo ? (

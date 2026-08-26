@@ -65,6 +65,33 @@ enum CategoriaInsumo {
   @@map("categoria_insumo")
 }
 
+/// Os 18 alimentos de declaração obrigatória do Anexo da RDC 26/2015 (ANVISA).
+/// A lista é fechada por lei — não inventar item nem tirar nenhum daqui.
+/// O item 1 da norma é um grupo só ("trigo, centeio, cevada, aveia e suas
+/// estirpes hibridizadas"), por isso vira um valor único.
+enum Alergeno {
+  GLUTEN
+  CRUSTACEOS
+  OVOS
+  PEIXES
+  AMENDOIM
+  SOJA
+  LEITE
+  AMENDOA
+  AVELA
+  CASTANHA_DE_CAJU
+  CASTANHA_DO_PARA
+  MACADAMIA
+  NOZES
+  PECA
+  PISTACHE
+  PINOLI
+  CASTANHA
+  LATEX
+
+  @@map("alergeno")
+}
+
 model Insumo {
   id          String          @id @default(cuid())
   nome        String          @unique
@@ -80,6 +107,20 @@ model Insumo {
   /// Custo da última compra — mostrado ao lado do médio pra ela ver a tendência
   custoUltimaCompra  Decimal?  @db.Decimal(14, 6)
   dataUltimaCompra   DateTime?
+
+  /// Alergênicos que o insumo CONTÉM (RDC 26/2015)
+  alergenos Alergeno[]
+
+  /// Alergênicos de contaminação cruzada — o "pode conter" do rótulo do
+  /// fabricante. Separado do de cima porque a norma exige frases diferentes.
+  alergenosTraco Alergeno[]
+
+  /// Se alguém já conferiu o rótulo deste insumo.
+  /// Existe porque lista vazia é ambígua: açúcar realmente não tem alergênico,
+  /// mas insumo recém-cadastrado também está vazio — e são coisas MUITO
+  /// diferentes quando o resultado é um aviso de alergia. Sem esta marca o
+  /// sistema não teria como avisar que a lista pode estar incompleta.
+  alergenosRevisados Boolean @default(false)
 
   /// Perecível liga o controle de validade por lote
   perecivel      Boolean @default(false)

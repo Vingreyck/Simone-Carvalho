@@ -37,6 +37,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import { SeletorAlergenos } from "@/components/seletor-alergenos";
+
 import { salvarInsumo, type Resultado } from "./acoes";
 import type { InsumoDaLista } from "./lista-insumos";
 
@@ -202,6 +204,42 @@ function FormularioInsumo({
           name="perecivel"
           defaultChecked={insumo?.perecivel ?? false}
         />
+      </div>
+
+      {/*
+        Alergênicos. É exigência da ANVISA (RDC 26/2015), e o trabalho é feito
+        UMA vez aqui: a partir daí toda receita que usar este insumo monta o
+        aviso sozinha.
+      */}
+      <div className="space-y-3 rounded-lg border p-3">
+        <div>
+          <Label className="text-sm">Alergênicos que este insumo contém</Label>
+          <p className="text-muted-foreground text-xs">
+            Marque o que está no rótulo. Toda receita que usar este insumo vai
+            avisar sozinha — você só faz isso uma vez.
+          </p>
+        </div>
+
+        <SeletorAlergenos campo="alergenos" selecionados={insumo?.alergenos ?? []} />
+
+        <div className="border-t pt-3">
+          <Label className="text-sm">Pode conter (traços)</Label>
+          <p className="text-muted-foreground mb-2 text-xs">
+            Só o que o rótulo disser &ldquo;pode conter&rdquo; — é a
+            contaminação da fábrica, e muda de marca pra marca.
+          </p>
+          <SeletorAlergenos
+            campo="alergenosTraco"
+            tom="traco"
+            selecionados={insumo?.alergenosTraco ?? []}
+          />
+        </div>
+
+        {insumo && !insumo.alergenosRevisados ? (
+          <p className="text-warning text-xs font-medium">
+            Este insumo ainda não foi conferido. Salvar marca como conferido.
+          </p>
+        ) : null}
       </div>
 
       <div className="space-y-2">

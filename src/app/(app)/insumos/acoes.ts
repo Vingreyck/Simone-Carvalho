@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 import { exigirSessao } from "@/lib/auth";
 import { normalizarUnidade } from "@/lib/unidades";
 import { CATEGORIAS, UNIDADES } from "@/lib/constantes";
+import { ALERGENOS_EM_ORDEM } from "@/lib/alergenos";
 
 export type Resultado = { ok: boolean; erro?: string; id?: string };
 
@@ -23,6 +24,8 @@ const esquemaInsumo = z.object({
   perecivel: z.coerce.boolean().default(false),
   marcaPreferida: z.string().trim().max(80).nullish(),
   observacao: z.string().trim().max(500).nullish(),
+  alergenos: z.array(z.enum(ALERGENOS_EM_ORDEM)).default([]),
+  alergenosTraco: z.array(z.enum(ALERGENOS_EM_ORDEM)).default([]),
 });
 
 /**
@@ -47,6 +50,8 @@ export async function salvarInsumo(
     perecivel: formData.get("perecivel") === "on",
     marcaPreferida: formData.get("marcaPreferida"),
     observacao: formData.get("observacao"),
+    alergenos: formData.getAll("alergenos"),
+    alergenosTraco: formData.getAll("alergenosTraco"),
   });
 
   if (!dados.success) {
@@ -54,6 +59,15 @@ export async function salvarInsumo(
   }
 
   const { id, nome, ...resto } = dados.data;
+
+  /**
+   * Salvar o insumo conta como conferir o rótulo dele.
+   *
+   * Sem esta marca, "não tem alergênico" e "ninguém olhou ainda" ficariam
+   * iguais no banco — e a ficha técnica não teria como avisar que o aviso
+   * pode estar incompleto.
+   */
+  const comAlergenos = { ...resto, alergenosRevisados: true };
 
   try {
     if (id) {
@@ -84,7 +98,7 @@ export async function salvarInsumo(
         where: { id },
         data: {
           nome,
-          ...resto,
+          ...comAlergenos,
           categoria: resto.categoria as never,
           unidadeBase: resto.unidadeBase as never,
         },
@@ -98,7 +112,7 @@ export async function salvarInsumo(
     const criado = await prisma.insumo.create({
       data: {
         nome,
-        ...resto,
+        ...comAlergenos,
         categoria: resto.categoria as never,
         unidadeBase: resto.unidadeBase as never,
       },
