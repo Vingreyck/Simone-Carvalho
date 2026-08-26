@@ -84,10 +84,35 @@ O sistema funcionava, mas cada compra custava ~120 toques. A Fase 6 atacou isso.
 - **Orçamento pro WhatsApp** (`src/lib/orcamento.ts`) — gera o texto formatado
   e o link `wa.me`.
 
-### Com IA (`ANTHROPIC_API_KEY`, opcional)
+### Com IA (opcional — dois provedores atrás da mesma porta)
 
-Modelo **`claude-opus-5`**, `thinking: adaptive`, saída validada por Zod
-(`messages.parse` + `zodOutputFormat`). Três leituras em `src/lib/ia/extracoes.ts`:
+`src/lib/ia/cliente.ts` expõe **um** `extrair()`; os provedores ficam em
+`provedor-gemini.ts` e `provedor-claude.ts` (import dinâmico — só carrega o SDK
+que estiver em uso). Instruções e esquemas Zod vivem num lugar só, então trocar
+de provedor **não mexe em prompt nem em validação**.
+
+| Chave | Provedor | Modelo | Custo |
+|---|---|---|---|
+| `GEMINI_API_KEY` | Google AI Studio | `gemini-3.7-flash` | camada gratuita |
+| `ANTHROPIC_API_KEY` | Anthropic | `claude-opus-5` | pago |
+
+Se as duas estiverem preenchidas, **vale o Gemini** — não gastar é o padrão.
+
+⚠️ **Pegadinha do Gemini:** ele não entende `anyOf`, e o Zod gera exatamente isso
+pra campo anulável (`z.string().nullable()` → `anyOf:[string,null]`). Sem tradução
+a API devolve 400 e o atalho morre. `src/lib/ia/esquema-gemini.ts` converte pro
+subconjunto aceito (`{type:"string", nullable:true}`) e descarta o que ele não
+conhece — schema com palavra estranha é recusado inteiro. Coberto por teste,
+inclusive uma varredura que falha se algum esquema passar a emitir palavra-chave
+não suportada.
+
+⚠️ **Privacidade da camada gratuita:** o Google usa o conteúdo enviado pra
+melhorar os produtos dele e revisores humanos podem ler ([docs de preços](https://ai.google.dev/gemini-api/docs/pricing)).
+Cupom e receita é um risco; **conversa do WhatsApp leva nome e telefone de
+cliente** — dado de terceiro, não dela. Se isso pesar, é essa leitura que
+justifica pôr a chave paga.
+
+Três leituras em `src/lib/ia/extracoes.ts`:
 
 1. **Foto do cupom → compra**
 2. **Foto do caderno / texto solto → ficha técnica**

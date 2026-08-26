@@ -132,7 +132,8 @@ Um serviço web + um Postgres. Variáveis necessárias:
 |---|---|
 | `DATABASE_URL` | referência ao Postgres do projeto |
 | `AUTH_SECRET` | **outro** valor aleatório, diferente do local |
-| `ANTHROPIC_API_KEY` | opcional — liga os atalhos de leitura por foto e WhatsApp |
+| `GEMINI_API_KEY` | opcional — liga os atalhos de leitura por foto e WhatsApp (camada gratuita) |
+| `ANTHROPIC_API_KEY` | opcional — alternativa paga ao `GEMINI_API_KEY`; se as duas existirem, vale o Gemini |
 | `SEED_ADMIN_EMAIL` / `SEED_ADMIN_SENHA` | só pro primeiro seed |
 
 O `railway.json` já roda `prisma migrate deploy` antes de subir o app, então as
