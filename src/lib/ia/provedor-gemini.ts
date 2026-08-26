@@ -24,8 +24,16 @@ import { IaIndisponivelError, type PedidoIa } from "./cliente";
  *
  * Flash e não Pro de propósito: as três leituras são extração, não raciocínio
  * longo — e o Pro não tem camada gratuita.
+ *
+ * `gemini-3.5-flash` e não o 3.7: no mesmo cupom de teste os dois devolveram
+ * exatamente a mesma leitura, mas o 3.5 levou 11 s contra 48 s do 3.7. Como o
+ * resultado empata, ganha o rápido — esperar 48 s olhando pra tela depois de
+ * fotografar faria ela desistir do atalho e voltar a digitar.
+ *
+ * Dá pra trocar por variável de ambiente, sem deploy, se algum modelo novo
+ * aparecer ou se este começar a errar.
  */
-export const MODELO_GEMINI = "gemini-3.7-flash";
+export const MODELO_GEMINI = process.env.GEMINI_MODELO ?? "gemini-3.5-flash";
 
 let clienteCache: GoogleGenAI | null = null;
 

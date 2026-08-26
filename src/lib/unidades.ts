@@ -33,7 +33,12 @@ const CONVERSOES_PADRAO: Record<string, ConversaoPadrao> = {
   // contagem → un
   un: { base: "UN", fator: new Decimal(1) },
   unidade: { base: "UN", fator: new Decimal(1) },
+  und: { base: "UN", fator: new Decimal(1) },
+  unid: { base: "UN", fator: new Decimal(1) },
   duzia: { base: "UN", fator: new Decimal(12) },
+  // Cupom fiscal escreve tudo abreviado ("OVOS BRANCOS DZ"). Sem este apelido a
+  // linha chega na tela com "não sei converter" e ela tem que corrigir na mão.
+  dz: { base: "UN", fator: new Decimal(12) },
 };
 
 export const ROTULO_UNIDADE_BASE: Record<UnidadeBase, string> = {

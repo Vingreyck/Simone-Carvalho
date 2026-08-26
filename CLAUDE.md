@@ -93,10 +93,18 @@ de provedor **não mexe em prompt nem em validação**.
 
 | Chave | Provedor | Modelo | Custo |
 |---|---|---|---|
-| `GEMINI_API_KEY` | Google AI Studio | `gemini-3.7-flash` | camada gratuita |
+| `GEMINI_API_KEY` | Google AI Studio | `gemini-3.5-flash` | camada gratuita |
 | `ANTHROPIC_API_KEY` | Anthropic | `claude-opus-5` | pago |
 
 Se as duas estiverem preenchidas, **vale o Gemini** — não gastar é o padrão.
+`GEMINI_MODELO` troca o modelo sem deploy.
+
+**Por que 3.5 e não 3.7:** medido no mesmo cupom, leitura idêntica — 3.5 em 11 s,
+3.7 em 48 s. Resultado empatado, ganha o rápido. (`thinking_level: "minimal"`
+existe só no 3.5; o 3.7 e o 2.5 aceitam apenas high/low/medium.)
+
+Medições reais das três leituras (agosto/2026): cupom 9,1 s · conversa 10,0 s ·
+receita 10,5 s.
 
 ⚠️ **Pegadinha do Gemini:** ele não entende `anyOf`, e o Zod gera exatamente isso
 pra campo anulável (`z.string().nullable()` → `anyOf:[string,null]`). Sem tradução

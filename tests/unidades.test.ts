@@ -42,6 +42,15 @@ describe("converterParaBase — unidades padrão", () => {
     expect(converterParaBase(2, "dúzia", "UN").toNumber()).toBe(24);
   });
 
+  it("entende as abreviações que vêm no cupom fiscal", () => {
+    // Cupom escreve "OVOS BRANCOS DZ". Sem estes apelidos a linha chega na tela
+    // com "não sei converter" e ela tem que arrumar na mão — logo no atalho que
+    // existe justamente pra ela não digitar.
+    expect(converterParaBase(1, "DZ", "UN").toNumber()).toBe(12);
+    expect(converterParaBase(3, "und", "UN").toNumber()).toBe(3);
+    expect(converterParaBase(3, "UNID", "UN").toNumber()).toBe(3);
+  });
+
   it("aceita decimal sem erro de ponto flutuante", () => {
     // 0.1 + 0.2 em float dá 0.30000000000000004 — com Decimal não dá.
     const meio = converterParaBase("0.35", "kg", "G");

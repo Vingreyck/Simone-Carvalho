@@ -46,6 +46,9 @@ export async function lerCupomFiscal(
       "FARINHA 5KG' é quantidade 2, tamanhoEmbalagem 5, unidade 'kg'.\n" +
       "- Quando a linha não indicar tamanho de embalagem, use tamanhoEmbalagem 1 " +
       "e a unidade que fizer sentido ('un' para itens contados).\n" +
+      "- A unidade DEVE ser uma destas, sem abreviar: kg, g, l, ml, un, dúzia. " +
+      "Traduza a abreviação do cupom para uma delas — 'DZ' vira 'dúzia', 'UND' " +
+      "e 'PCT' viram 'un'. Qualquer outra coisa o sistema não sabe converter.\n" +
       "- valorTotal é o total daquela linha (já multiplicado pela quantidade), " +
       "não o preço unitário.\n" +
       "- Ignore linhas que não são produto: desconto, troco, subtotal, tributos, " +
