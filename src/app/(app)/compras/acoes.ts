@@ -9,8 +9,18 @@ import { exigirSessao } from "@/lib/auth";
 import { converterParaBase, UnidadeDesconhecidaError } from "@/lib/unidades";
 import { calcularCustoMedio, calcularEntradaDeCompra } from "@/lib/estoque";
 import { lerDataLocal } from "@/lib/format";
+import { montarAvisoDeAlta, type AvisoDeAlta } from "@/server/impacto";
 
-export type Resultado = { ok: boolean; erro?: string; id?: string };
+export type Resultado = {
+  ok: boolean;
+  erro?: string;
+  id?: string;
+  /**
+   * Preenchido quando a compra encareceu algum produto. É a razão de o sistema
+   * existir: ela nunca teria como perceber isso sozinha.
+   */
+  aviso?: AvisoDeAlta | null;
+};
 
 const esquemaItem = z.object({
   insumoId: z.string().min(1, "Escolha o insumo."),
@@ -158,6 +168,23 @@ export async function lancarCompra(
   const valorTotalCompra = valorItens.plus(frete);
   const dataCompra = lerDataLocal(cabecalho.data);
 
+  /**
+   * O custo médio de cada insumo ANTES desta compra.
+   *
+   * É o que permite responder, logo depois de salvar, "o chocolate subiu e
+   * estes produtos ficaram no prejuízo". Comparo o custo MÉDIO, não o preço da
+   * embalagem: se ela tinha 10 kg de farinha barata e comprou 1 kg cara, o
+   * custo dos doces mal se mexe — e o aviso precisa dizer a verdade, senão vira
+   * alarme falso.
+   */
+  const custoMedioAntes = new Map<string, Decimal>(
+    preparados.map((item) => [
+      item.insumoId,
+      new Decimal(porId.get(item.insumoId)!.custoMedio.toString()),
+    ]),
+  );
+  const custoMedioDepois = new Map<string, Decimal>();
+
   // -------------------------------- grava tudo de uma vez ou nada --------------
   const compraId = await prisma.$transaction(async (tx) => {
     let fornecedorId = cabecalho.fornecedorId || null;
@@ -244,6 +271,8 @@ export async function lancarCompra(
         insumo.custoMedio.toString(),
       );
 
+      custoMedioDepois.set(item.insumoId, custoMedio);
+
       await tx.movimentoEstoque.create({
         data: {
           insumoId: item.insumoId,
@@ -314,9 +343,20 @@ export async function lancarCompra(
   revalidatePath("/insumos");
   revalidatePath("/estoque");
   revalidatePath("/financeiro");
+  revalidatePath("/produtos");
   revalidatePath("/");
 
-  return { ok: true, id: compraId };
+  // Fora da transação de propósito: se a conta do impacto falhar por qualquer
+  // motivo, a compra já está gravada. Perder o aviso é ruim; perder a compra
+  // que ela acabou de digitar seria bem pior.
+  let aviso: AvisoDeAlta | null = null;
+  try {
+    aviso = await montarAvisoDeAlta(custoMedioAntes, custoMedioDepois);
+  } catch {
+    aviso = null;
+  }
+
+  return { ok: true, id: compraId, aviso };
 }
 
 /**

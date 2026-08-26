@@ -32,6 +32,7 @@ import {
 import { SeletorInsumo } from "@/components/seletor-insumo";
 
 import { lancarCompra, type Resultado } from "../acoes";
+import { DialogoAlta } from "../dialogo-alta";
 import { aprenderApelidos } from "./acoes-ia";
 import { AtalhosCompra, type ResultadoDoAtalho } from "./atalhos-compra";
 
@@ -98,11 +99,26 @@ export function FormularioCompra({
   const [jaPago, setJaPago] = useState(true);
   const [linhas, setLinhas] = useState<Linha[]>([linhaVazia()]);
 
+  /**
+   * Quando a compra encarece algum produto, o aviso segura a navegação.
+   *
+   * Mandar ela pra tela da compra e mostrar o alerta lá seria pior: ela sairia
+   * dessa tela achando que acabou. O aviso de que um doce virou prejuízo é a
+   * coisa mais importante que o sistema tem pra dizer — merece parar o fluxo.
+   */
+  const [avisoDispensado, setAvisoDispensado] = useState(false);
+
+  // Derivado em vez de guardado: abrir o diálogo é consequência de ter aviso,
+  // não um estado próprio. Evita o setState dentro do efeito.
+  const avisoAberto = Boolean(estado.aviso) && !avisoDispensado;
+
   useEffect(() => {
-    if (estado.ok && estado.id) {
-      toast.success("Compra lançada! Os preços dos insumos já foram atualizados.");
-      router.push(`/compras/${estado.id}`);
-    }
+    if (!estado.ok || !estado.id) return;
+
+    toast.success("Compra lançada! Os preços dos insumos já foram atualizados.");
+
+    // Com aviso na tela, a navegação espera ela fechar
+    if (!estado.aviso) router.push(`/compras/${estado.id}`);
   }, [estado, router]);
 
   const porId = useMemo(
@@ -428,6 +444,17 @@ export function FormularioCompra({
           )}
         </Button>
       </div>
+
+      {estado.aviso ? (
+        <DialogoAlta
+          aviso={estado.aviso}
+          aberto={avisoAberto}
+          onFechar={() => {
+            setAvisoDispensado(true);
+            if (estado.id) router.push(`/compras/${estado.id}`);
+          }}
+        />
+      ) : null}
     </form>
   );
 }

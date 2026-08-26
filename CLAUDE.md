@@ -206,6 +206,50 @@ Dois detalhes que vieram de pensar no balcão:
 - No financeiro, pagamento que cobre o pedido inteiro é descrito como
   **"Venda #N"**, não "Sinal" — senão ela procuraria um resto que não existe.
 
+## 🔔 Aviso de alta de preço — o coração do sistema
+
+Depois de salvar uma compra, se algum insumo encareceu, abre um diálogo:
+*"Farinha de trigo subiu 70% — TESTE Bolo simples passou a dar prejuízo:
+custa R$ 8,50, você vende por R$ 8,00, devia ser R$ 16,67."*
+
+É a razão do projeto existir. Ela **não tem como perceber isso sozinha** — o
+prejuízo só aparece meses depois, no bolso, sem explicação.
+
+Decisões que sustentam o aviso:
+
+1. **Compara o custo MÉDIO, não o preço da embalagem.** Se ela tinha 10 kg de
+   farinha barata e comprou 1 kg cara, o custo dos doces mal se mexe. Avisar
+   "subiu 70%" ali seria mentira e viraria alarme falso.
+2. **Piso de 5% (`ALTA_MINIMA_PARA_AVISAR`).** Preço oscila centavo o tempo
+   todo; avisar de 0,4% treina ela a fechar sem ler — e aí a alta de 20% passa
+   junto.
+3. **Prejuízo primeiro na lista.** Se ela ler só a primeira linha, que seja a
+   que dói. Quem já estava no prejuízo antes não conta como novidade.
+4. **A IA... digo, o sistema nunca reprecifica sozinho.** Só avisa. Repassar
+   preço envolve cliente fiel, e isso o sistema não sabe pesar.
+5. O cálculo roda **fora da transação**: se ele falhar, a compra já está salva.
+   Perder o aviso é ruim; perder a compra que ela digitou seria pior.
+
+`receitasAfetadasPor` em `custo.ts` existia desde a Fase 2 e **nunca tinha sido
+ligada em lugar nenhum** — o cálculo hoje vive em `src/lib/impacto-preco.ts`.
+
+## 📋 "O que fazer" (`/producao/plano`)
+
+Responde as duas perguntas da manhã dela: **o que preciso assar** e **o que
+preciso comprar**. Junta encomendas + fichas técnicas + estoque, que já
+existiam separados.
+
+- Só entra pedido **CONFIRMADO/EM_PRODUCAO/PRONTO**. Orçamento fica de fora:
+  assar o que a cliente não confirmou é desperdício.
+- Agrupa o mesmo produto de pedidos diferentes, mas mostra pra quem é cada um.
+- O grupo herda a **urgência mais apertada** — 2 atrasados + 4 pra amanhã é
+  "Atrasado".
+- Urgência compara só a data: entrega de hoje às 9h ainda é "hoje" às 15h. Ela
+  produz quando dá.
+- A lista de compras tem botão de copiar, pra ela levar no mercado.
+- `totalDeItens` = tipos de doce; `totalDeUnidades` = quantidade. O painel usa o
+  segundo — "6 bolos" diz o tamanho do dia, "1 tipo" não diz nada.
+
 ## 🗺️ Fases
 
 | Fase | Módulo | Situação |

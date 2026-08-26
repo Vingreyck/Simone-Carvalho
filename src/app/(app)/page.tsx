@@ -3,6 +3,7 @@ import {
   ArrowRight,
   CalendarClock,
   ChefHat,
+  ClipboardList,
   CookingPot,
   ShoppingCart,
   Tags,
@@ -18,6 +19,7 @@ import { formatarQuantidade } from "@/lib/unidades";
 import { cn } from "@/lib/utils";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { carregarPlano } from "@/server/plano";
 import { PrimeirosPassos } from "./primeiros-passos";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +36,7 @@ export default async function PaginaPainel() {
     doMes,
     pendentes,
     contagens,
+    plano,
   ] = await Promise.all([
     prisma.insumo.findMany({
       where: { ativo: true },
@@ -77,6 +80,7 @@ export default async function PaginaPainel() {
       prisma.receita.count({ where: { ativo: true } }),
       prisma.produto.count({ where: { ativo: true } }),
     ]),
+    carregarPlano(),
   ]);
 
   const [totalInsumos, totalCompras, totalReceitas, totalProdutos] = contagens;
@@ -174,7 +178,9 @@ export default async function PaginaPainel() {
     acabando.length > 0 ||
     vencendo.length > 0 ||
     noPrejuizo.length > 0 ||
-    vencidas.length > 0;
+    vencidas.length > 0 ||
+    plano.temAtrasado ||
+    plano.faltaComprar.length > 0;
 
   return (
     <div className="mx-auto max-w-5xl space-y-5">
@@ -194,6 +200,28 @@ export default async function PaginaPainel() {
       {temAlerta ? (
         <section className="space-y-3">
           <h2 className="text-lg font-semibold">Precisa da sua atenção</h2>
+
+          {plano.temAtrasado ? (
+            <Alerta
+              tom="danger"
+              icone={ClipboardList}
+              titulo="Tem encomenda atrasada"
+              texto="A data de entrega já passou e o pedido não saiu."
+              href="/producao/plano"
+              acao="Ver o que fazer"
+            />
+          ) : null}
+
+          {plano.faltaComprar.length > 0 ? (
+            <Alerta
+              tom="warning"
+              icone={ShoppingCart}
+              titulo={`Falta insumo pras encomendas`}
+              texto={plano.faltaComprar.map((f) => f.nome).join(", ")}
+              href="/producao/plano"
+              acao="Ver a lista"
+            />
+          ) : null}
 
           {noPrejuizo.length > 0 ? (
             <Alerta
@@ -276,12 +304,26 @@ export default async function PaginaPainel() {
             titulo="Lancei uma compra"
             texto="Atualiza os preços"
           />
-          <Atalho
-            href="/producao/nova"
-            icone={CookingPot}
-            titulo="Produzi hoje"
-            texto="Baixa o estoque"
-          />
+          {/*
+            "O que fazer" no lugar de "Produzi hoje" quando há encomenda
+            esperando: de manhã a pergunta dela é o que assar, não o que já
+            assou. Sem nada pendente, o atalho de registrar produção volta.
+          */}
+          {plano.totalDeItens > 0 ? (
+            <Atalho
+              href="/producao/plano"
+              icone={ClipboardList}
+              titulo="O que fazer hoje"
+              texto={`${formatarNumero(plano.totalDeUnidades)} ${plano.totalDeUnidades === 1 ? "doce" : "doces"} na fila`}
+            />
+          ) : (
+            <Atalho
+              href="/producao/nova"
+              icone={CookingPot}
+              titulo="Produzi hoje"
+              texto="Baixa o estoque"
+            />
+          )}
           <Atalho
             href="/receitas/nova"
             icone={ChefHat}
