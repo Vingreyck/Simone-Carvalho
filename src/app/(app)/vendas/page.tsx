@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, Receipt } from "lucide-react";
+import { Plus, Receipt, Zap } from "lucide-react";
 
 import { prisma } from "@/lib/db";
 import { estaEmAberto } from "@/lib/pedidos";
@@ -74,12 +74,24 @@ export default async function PaginaVendas() {
         titulo="Vendas e encomendas"
         descricao="Pedidos, clientes e a agenda de entregas."
         acao={
-          <Button asChild>
-            <Link href="/vendas/novo">
-              <Plus className="size-4" />
-              Novo pedido
-            </Link>
-          </Button>
+          <div className="flex gap-2">
+            {/*
+              Venda de balcão vem primeiro: é a mais comum dela — a pessoa vai
+              lá, escolhe e leva. Encomenda é a exceção, não a regra.
+            */}
+            <Button asChild>
+              <Link href="/vendas/agora">
+                <Zap className="size-4" />
+                Venda agora
+              </Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href="/vendas/novo">
+                <Plus className="size-4" />
+                Encomenda
+              </Link>
+            </Button>
+          </div>
         }
       />
 

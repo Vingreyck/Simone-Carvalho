@@ -42,3 +42,23 @@ export async function insumosMaisUsados(limite = 8): Promise<string[]> {
     .slice(0, limite)
     .map(([id]) => id);
 }
+
+/**
+ * Os produtos que mais saem, pra ficarem à mão na venda de balcão.
+ *
+ * Conta quantas VEZES o produto apareceu numa venda, não quantas unidades:
+ * quem vende brigadeiro de cento em cento ficaria eternamente no topo, mesmo
+ * vendendo uma vez por mês.
+ */
+export async function produtosMaisVendidos(limite = 6): Promise<string[]> {
+  const vendas = await prisma.pedidoItem.groupBy({
+    by: ["produtoId"],
+    where: { pedido: { status: { not: "CANCELADO" } } },
+    _count: { produtoId: true },
+  });
+
+  return vendas
+    .sort((a, b) => b._count.produtoId - a._count.produtoId)
+    .slice(0, limite)
+    .map((v) => v.produtoId);
+}

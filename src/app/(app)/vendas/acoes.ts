@@ -279,13 +279,19 @@ async function sincronizarFinanceiro(pedidoId: string): Promise<void> {
   const quem = pedido.cliente?.nome ?? "Venda avulsa";
   const vencimento = pedido.dataEntrega ?? pedido.dataPedido;
 
-  // O sinal já entrou no caixa — vira lançamento pago
+  // O sinal já entrou no caixa — vira lançamento pago.
+  // Quando ele cobre o pedido inteiro não é sinal, é a venda à vista do balcão:
+  // chamar de "sinal" no extrato faria ela procurar um resto que não existe.
+  const pagouTudo = sinal.greaterThanOrEqualTo(total);
+
   if (sinal.greaterThan(0)) {
     await prisma.lancamento.create({
       data: {
         tipo: "RECEITA",
         categoriaId: categoria?.id ?? null,
-        descricao: `Sinal do pedido #${pedido.numero} — ${quem}`,
+        descricao: pagouTudo
+          ? `Venda #${pedido.numero} — ${quem}`
+          : `Sinal do pedido #${pedido.numero} — ${quem}`,
         valor: sinal.toFixed(2),
         dataVencimento: pedido.dataPedido,
         dataPagamento: pedido.dataPedido,

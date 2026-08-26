@@ -175,6 +175,37 @@ rótulo da marca comprada.
 Regra invertida em relação ao custo: **na dúvida, avisar a mais**. Custo errado dá
 prejuízo; alergênico esquecido manda alguém pro hospital.
 
+## 🛒 Como ela vende de verdade (contado pelo Vinícius em 26/ago/2026)
+
+Isso muda prioridade, então está escrito aqui:
+
+- Clientes vêm de **boca a boca** e falam por **WhatsApp**. São poucos e muito fiéis.
+- Ela **não quer mais clientes** — não dá conta do volume. Por isso não entrou em
+  iFood nem em plataforma de venda.
+- Três formas de vender: a pessoa **vai na casa dela, escolhe e leva**; ela mesma
+  **entrega quando tem tempo**; ou pede pelo WhatsApp e ela **atende quando dá**.
+
+⚠️ **O gargalo dela é tempo, não demanda.** Só vale o que economiza tempo dela.
+Qualquer coisa que atraia cliente novo (cardápio público, catálogo com link,
+integração de delivery) resolve um problema que ela **não tem** — e pode piorar
+o que ela tem. Isso derrubou o "cardápio digital" que a pesquisa de mercado
+apontava como prioridade 2.
+
+**Venda agora** (`/vendas/agora`) nasceu daí: a venda de balcão é a mais comum
+dela e era a que o sistema tratava pior — o fluxo de encomenda
+(orçamento → confirmado → produzindo → pronto → entregue + registrar pagamento)
+são 6 passos pra uma venda **que já acabou**. A tela nova grava direto como
+ENTREGUE e paga, por baixo no mesmo `salvarPedido`, então custo congelado e
+lançamento no financeiro continuam iguais.
+
+Dois detalhes que vieram de pensar no balcão:
+- Digitar **mais** que o total é troco (nota de R$ 50 numa venda de R$ 42,50),
+  não receita — o excedente é descartado e a tela mostra o troco.
+- Digitar **menos** é desconto de cliente fiel; fica registrado, porque some do
+  lucro e ela precisa enxergar.
+- No financeiro, pagamento que cobre o pedido inteiro é descrito como
+  **"Venda #N"**, não "Sinal" — senão ela procuraria um resto que não existe.
+
 ## 🗺️ Fases
 
 | Fase | Módulo | Situação |
