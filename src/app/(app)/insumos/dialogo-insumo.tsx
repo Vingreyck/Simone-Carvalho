@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { LoaderCircle } from "lucide-react";
 import { toast } from "sonner";
 
-import type { UnidadeBase } from "@/generated/prisma/enums";
+import type { Alergeno, UnidadeBase } from "@/generated/prisma/enums";
 import {
   AJUDA_UNIDADE,
   CATEGORIAS,
@@ -38,6 +38,9 @@ import {
 } from "@/components/ui/select";
 
 import { SeletorAlergenos } from "@/components/seletor-alergenos";
+import { BotaoFoto } from "@/components/botao-foto";
+
+import { lerRotuloDoInsumo, type LeituraDoRotulo } from "./acoes-ia";
 
 import { salvarInsumo, type Resultado } from "./acoes";
 import type { InsumoDaLista } from "./lista-insumos";
@@ -46,10 +49,12 @@ export function DialogoInsumo({
   aberto,
   onOpenChange,
   insumo,
+  iaConfigurada,
 }: {
   aberto: boolean;
   onOpenChange: (aberto: boolean) => void;
   insumo: InsumoDaLista | null;
+  iaConfigurada: boolean;
 }) {
   const editando = Boolean(insumo);
 
@@ -76,6 +81,7 @@ export function DialogoInsumo({
           <FormularioInsumo
             key={insumo?.id ?? "novo"}
             insumo={insumo}
+            iaConfigurada={iaConfigurada}
             onFechar={() => onOpenChange(false)}
           />
         ) : null}
@@ -86,9 +92,11 @@ export function DialogoInsumo({
 
 function FormularioInsumo({
   insumo,
+  iaConfigurada,
   onFechar,
 }: {
   insumo: InsumoDaLista | null;
+  iaConfigurada: boolean;
   onFechar: () => void;
 }) {
   const router = useRouter();
@@ -100,6 +108,35 @@ function FormularioInsumo({
   const [unidade, setUnidade] = useState<UnidadeBase>(
     insumo?.unidadeBase ?? "G",
   );
+
+  const [alergenos, setAlergenos] = useState<Alergeno[]>(insumo?.alergenos ?? []);
+  const [traco, setTraco] = useState<Alergeno[]>(insumo?.alergenosTraco ?? []);
+  const [lendoRotulo, setLendoRotulo] = useState(false);
+  const [leitura, setLeitura] = useState<LeituraDoRotulo | null>(null);
+
+  async function lerFotoDoRotulo(arquivo: File) {
+    setLendoRotulo(true);
+    setLeitura(null);
+    try {
+      const dados = new FormData();
+      dados.set("foto", arquivo);
+      const r = await lerRotuloDoInsumo(dados);
+
+      if (!r.ok) {
+        toast.error(r.erro ?? "Não consegui ler o rótulo.");
+        return;
+      }
+
+      // Some com o que estava marcado: a foto é do rótulo inteiro, então ela
+      // é a fonte da verdade. Somar com o antigo esconderia uma correção.
+      setAlergenos(r.contem ?? []);
+      setTraco(r.podeConter ?? []);
+      setLeitura(r);
+      toast.success("Rótulo lido. Confira antes de salvar.");
+    } finally {
+      setLendoRotulo(false);
+    }
+  }
 
   useEffect(() => {
     if (estado.ok) {
@@ -212,15 +249,29 @@ function FormularioInsumo({
         aviso sozinha.
       */}
       <div className="space-y-3 rounded-lg border p-3">
-        <div>
-          <Label className="text-sm">Alergênicos que este insumo contém</Label>
-          <p className="text-muted-foreground text-xs">
-            Marque o que está no rótulo. Toda receita que usar este insumo vai
-            avisar sozinha — você só faz isso uma vez.
-          </p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <Label className="text-sm">Alergênicos que este insumo contém</Label>
+            <p className="text-muted-foreground text-xs">
+              Marque o que está no rótulo. Toda receita que usar este insumo vai
+              avisar sozinha — você só faz isso uma vez.
+            </p>
+          </div>
+
+          {iaConfigurada ? (
+            <BotaoFoto
+              onFoto={lerFotoDoRotulo}
+              processando={lendoRotulo}
+              rotulo="Ler rótulo"
+            />
+          ) : null}
         </div>
 
-        <SeletorAlergenos campo="alergenos" selecionados={insumo?.alergenos ?? []} />
+        <SeletorAlergenos
+          campo="alergenos"
+          selecionados={alergenos}
+          onChange={setAlergenos}
+        />
 
         <div className="border-t pt-3">
           <Label className="text-sm">Pode conter (traços)</Label>
@@ -231,9 +282,24 @@ function FormularioInsumo({
           <SeletorAlergenos
             campo="alergenosTraco"
             tom="traco"
-            selecionados={insumo?.alergenosTraco ?? []}
+            selecionados={traco}
+            onChange={setTraco}
           />
         </div>
+
+        {leitura?.frase ? (
+          <div className="bg-muted/50 rounded-md border p-2">
+            <p className="text-muted-foreground text-xs">Li isto na foto:</p>
+            <p className="mt-0.5 text-xs font-medium">{leitura.frase}</p>
+          </div>
+        ) : null}
+
+        {leitura?.naoEntendi && leitura.naoEntendi.length > 0 ? (
+          <p className="text-warning text-xs font-medium">
+            Não reconheci: {leitura.naoEntendi.join(", ")}. Se for alergênico,
+            marque na mão.
+          </p>
+        ) : null}
 
         {insumo && !insumo.alergenosRevisados ? (
           <p className="text-warning text-xs font-medium">

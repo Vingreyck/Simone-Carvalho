@@ -12,6 +12,14 @@ import { z } from "zod";
 export const ItemDoCupomSchema = z.object({
   /** Como está escrito no cupom, sem "traduzir" — é o que ela vai conferir */
   descricao: z.string(),
+  /**
+   * O mesmo produto com nome de gente ("Açúcar refinado").
+   *
+   * Só é usado quando o item não existe no cadastro dela e o sistema vai criar
+   * o insumo — o nome do cupom ("ACUC REFINADO UNIAO 1KG") viraria um item feio
+   * e permanente na lista.
+   */
+  nomeLimpo: z.string(),
   /** Quantas embalagens (2 sacos, 3 latas) */
   quantidade: z.number(),
   /** Quanto vem em cada uma (5, no caso de "saco de 5 kg"). 1 se não disser. */
@@ -59,6 +67,26 @@ export const ReceitaExtraidaSchema = z.object({
 
 export type IngredienteExtraido = z.infer<typeof IngredienteSchema>;
 export type ReceitaExtraida = z.infer<typeof ReceitaExtraidaSchema>;
+
+/**
+ * Leitura do rótulo de um insumo.
+ *
+ * A IA aqui só TRANSCREVE o que está escrito na embalagem — não deduz. "Leite
+ * condensado deve ter leite" é dedução; "está escrito ALÉRGICOS: CONTÉM LEITE"
+ * é leitura. Só a segunda é confiável o bastante pra virar aviso de alergia.
+ */
+export const RotuloSchema = z.object({
+  /** O que aparece depois de "ALÉRGICOS: CONTÉM" no rótulo */
+  contem: z.array(z.string()),
+  /** O que aparece depois de "ALÉRGICOS: PODE CONTER" */
+  podeConter: z.array(z.string()),
+  /** A frase de alergênicos como está escrita, pra ela conferir contra a foto */
+  frase: z.string().nullable(),
+  /** false quando a foto não mostra a parte de alergênicos da embalagem */
+  achouAviso: z.boolean(),
+});
+
+export type Rotulo = z.infer<typeof RotuloSchema>;
 
 export const ItemDoPedidoSchema = z.object({
   /** Produto como a cliente pediu ("bolo de chocolate 2kg") */

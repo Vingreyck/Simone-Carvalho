@@ -13,7 +13,11 @@ import { montarPlano, type ItemPendente, type Plano } from "@/lib/plano";
 export async function carregarPlano(): Promise<Plano> {
   const [pedidos, base, produtos, saldos] = await Promise.all([
     prisma.pedido.findMany({
-      where: { status: { in: ["CONFIRMADO", "EM_PRODUCAO", "PRONTO"] } },
+      // PRONTO fica de fora: já foi feito, e "o que fazer" é lista de pendência.
+      // Deixá-lo aqui fazia o item continuar na tela depois do "Já fiz" — e o
+      // risco não era só visual: ela clicaria de novo e baixaria o estoque duas
+      // vezes.
+      where: { status: { in: ["CONFIRMADO", "EM_PRODUCAO"] } },
       select: {
         id: true,
         numero: true,

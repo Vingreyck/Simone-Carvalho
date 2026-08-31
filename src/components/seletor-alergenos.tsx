@@ -17,14 +17,29 @@ import { cn } from "@/lib/utils";
 export function SeletorAlergenos({
   campo,
   selecionados,
+  onChange,
   tom = "contem",
 }: {
   /** Nome do campo no formulário: "alergenos" ou "alergenosTraco" */
   campo: string;
   selecionados: Alergeno[];
+  /**
+   * Controlado porque a leitura do rótulo por foto precisa marcar os campos
+   * sozinha. Sem isso a IA não teria como preencher a tela.
+   */
+  onChange: (alergenos: Alergeno[]) => void;
   tom?: "contem" | "traco";
 }) {
   const marcados = new Set(selecionados);
+
+  function alternar(alergeno: Alergeno, marcar: boolean) {
+    const novo = new Set(marcados);
+    if (marcar) novo.add(alergeno);
+    else novo.delete(alergeno);
+
+    // Devolve na ordem da norma, não na ordem em que ela clicou
+    onChange(ALERGENOS_EM_ORDEM.filter((a) => novo.has(a)));
+  }
 
   return (
     <div className="flex flex-wrap gap-1.5">
@@ -43,7 +58,8 @@ export function SeletorAlergenos({
             type="checkbox"
             name={campo}
             value={alergeno}
-            defaultChecked={marcados.has(alergeno)}
+            checked={marcados.has(alergeno)}
+            onChange={(e) => alternar(alergeno, e.target.checked)}
             className="sr-only"
           />
           {ROTULO_ALERGENO[alergeno]}

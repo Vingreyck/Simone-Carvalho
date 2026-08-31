@@ -4,6 +4,7 @@ import {
   ALERGENOS_EM_ORDEM,
   ROTULO_ALERGENO,
   alergenosDaReceita,
+  interpretarAlergeno,
   montarAviso,
   type InsumoParaAlergenos,
   type ReceitaParaAlergenos,
@@ -62,6 +63,36 @@ describe("a lista da norma", () => {
     for (const a of ALERGENOS_EM_ORDEM) {
       expect(ROTULO_ALERGENO[a]).toBeTruthy();
     }
+  });
+});
+
+describe("ler o que o rótulo escreveu", () => {
+  it("reconhece os nomes comuns", () => {
+    expect(interpretarAlergeno("leite")).toBe("LEITE");
+    expect(interpretarAlergeno("SOJA")).toBe("SOJA");
+    expect(interpretarAlergeno("Trigo")).toBe("GLUTEN");
+    expect(interpretarAlergeno("glúten")).toBe("GLUTEN");
+    expect(interpretarAlergeno("ovos")).toBe("OVOS");
+  });
+
+  it("aceita as variações que cada fábrica escreve", () => {
+    expect(interpretarAlergeno("castanha-de-caju")).toBe("CASTANHA_DE_CAJU");
+    expect(interpretarAlergeno("castanha de caju")).toBe("CASTANHA_DE_CAJU");
+    expect(interpretarAlergeno("Castanha do Pará")).toBe("CASTANHA_DO_PARA");
+    expect(interpretarAlergeno("castanha-do-brasil")).toBe("CASTANHA_DO_PARA");
+  });
+
+  it('tira o "e derivados" que o rótulo põe', () => {
+    expect(interpretarAlergeno("leite e derivados")).toBe("LEITE");
+    expect(interpretarAlergeno("derivados de soja")).toBe("SOJA");
+    expect(interpretarAlergeno("trigo e derivados.")).toBe("GLUTEN");
+  });
+
+  it("o que não reconhece vira null, não vira chute", () => {
+    // Melhor ela marcar na mão do que o sistema inventar um alergênico
+    expect(interpretarAlergeno("corante caramelo")).toBeNull();
+    expect(interpretarAlergeno("")).toBeNull();
+    expect(interpretarAlergeno("conservante INS 202")).toBeNull();
   });
 });
 

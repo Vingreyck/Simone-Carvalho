@@ -10,6 +10,8 @@ import {
 } from "@/lib/ia/cliente";
 import { CONFIANCA_ALTA, casarInsumo } from "@/lib/correspondencia";
 import { normalizarTexto } from "@/lib/format";
+import { normalizarUnidade } from "@/lib/unidades";
+import type { UnidadeBase } from "@/generated/prisma/enums";
 
 export type ItemLido = {
   /** Como veio escrito no cupom — fica visível pra ela conferir */
@@ -22,7 +24,30 @@ export type ItemLido = {
   tamanhoEmbalagem: number;
   unidade: string;
   valorTotal: number;
+  /**
+   * Preenchido quando o item não existe no cadastro dela.
+   *
+   * O insumo NÃO é criado aqui — só quando ela confirmar a compra. Assim a
+   * regra continua valendo: a IA propõe, ela decide, e uma foto lida errado
+   * não deixa lixo no cadastro.
+   */
+  novoInsumo?: { nome: string; unidadeBase: UnidadeBase } | null;
 };
+
+/**
+ * "kg" → gramas, "l" → mililitros, "dz" → unidades.
+ *
+ * A unidade base é a decisão mais difícil de desfazer num insumo (trocar depois
+ * exige não ter estoque nem receita), então erra pro lado do que a embalagem
+ * diz: quem compra em kg mede em grama.
+ */
+function unidadeBaseDe(unidade: string): UnidadeBase {
+  const u = normalizarUnidade(unidade);
+
+  if (["kg", "g", "grama", "quilo", "mg"].includes(u)) return "G";
+  if (["l", "ml", "litro", "mililitro"].includes(u)) return "ML";
+  return "UN";
+}
 
 export type CupomLido = {
   ok: boolean;
@@ -91,6 +116,13 @@ export async function lerCupom(formData: FormData): Promise<CupomLido> {
         tamanhoEmbalagem: item.tamanhoEmbalagem,
         unidade: item.unidade,
         valorTotal: item.valorTotal,
+        // Não casou com nada: propõe criar, com o nome limpo que a IA sugeriu
+        novoInsumo: casado
+          ? null
+          : {
+              nome: (item.nomeLimpo || item.descricao).trim(),
+              unidadeBase: unidadeBaseDe(item.unidade),
+            },
       };
     });
 

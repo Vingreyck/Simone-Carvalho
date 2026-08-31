@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { iaEstaConfigurada } from "@/lib/ia/cliente";
 import { situacaoEstoque } from "@/lib/estoque";
 
 import { ListaInsumos, type InsumoDaLista } from "./lista-insumos";
@@ -64,5 +65,5 @@ export default async function PaginaInsumos() {
     };
   });
 
-  return <ListaInsumos insumos={lista} />;
+  return <ListaInsumos insumos={lista} iaConfigurada={iaEstaConfigurada()} />;
 }

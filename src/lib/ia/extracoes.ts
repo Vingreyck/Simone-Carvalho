@@ -5,9 +5,11 @@ import {
   CupomSchema,
   PedidoExtraidoSchema,
   ReceitaExtraidaSchema,
+  RotuloSchema,
   type Cupom,
   type PedidoExtraido,
   type ReceitaExtraida,
+  type Rotulo,
 } from "./esquemas";
 
 /**
@@ -42,6 +44,10 @@ export async function lerCupomFiscal(
       "- Transcreva a descrição EXATAMENTE como está no cupom, com as " +
       "abreviações do mercado (ex.: 'ACUC REFINADO UNIAO 1KG'). Não traduza " +
       "nem normalize — quem confere precisa reconhecer a linha.\n" +
+      "- Em nomeLimpo, escreva o mesmo produto como uma confeiteira o chamaria: " +
+      "'ACUC REFINADO UNIAO 1KG' vira 'Açúcar refinado'. SEM marca, SEM peso, " +
+      "sem caixa alta. É o nome que pode virar um item permanente no cadastro " +
+      "dela, então escreva como ela escreveria.\n" +
       "- Separe quantidade de embalagens do tamanho de cada uma: '2x SACO " +
       "FARINHA 5KG' é quantidade 2, tamanhoEmbalagem 5, unidade 'kg'.\n" +
       "- Quando a linha não indicar tamanho de embalagem, use tamanhoEmbalagem 1 " +
@@ -106,6 +112,52 @@ export async function lerReceita(
       "está escrita.\n\n" +
       NA_DUVIDA_DEIXE_VAZIO,
     conteudo,
+  });
+}
+
+/**
+ * Foto do rótulo → alergênicos.
+ *
+ * Isso é transcrição, não interpretação: a embalagem é obrigada por lei a
+ * trazer a frase pronta ("ALÉRGICOS: CONTÉM LEITE, SOJA"), e a IA só copia.
+ * Por isso é confiável o suficiente pra um campo que existe por causa de
+ * alergia — diferente de deduzir alergênico pelo nome do produto, que eu me
+ * recusei a fazer no seed.
+ */
+export async function lerRotulo(
+  imagemBase64: string,
+  tipoDeImagem: TipoDeImagem,
+): Promise<Rotulo> {
+  return extrair({
+    esquema: RotuloSchema,
+    aoFalhar: "Não consegui ler o rótulo.",
+    // Medido no mesmo rótulo: "medio" levou 100 s, "baixo" levou 30 s e leu
+    // exatamente igual. A frase de alergênico é impressa e padronizada por lei
+    // — é transcrição, não raciocínio. Esperar 100 s faria ela desistir.
+    esforco: "baixo",
+    sistema:
+      "Você lê o rótulo de embalagens de alimentos brasileiras e extrai a " +
+      "declaração de alergênicos exigida pela RDC 26/2015 da ANVISA.\n\n" +
+      "Regras:\n" +
+      "- Procure as frases 'ALÉRGICOS: CONTÉM ...' e 'ALÉRGICOS: PODE CONTER ...'. " +
+      "Elas costumam ficar logo depois da lista de ingredientes, em negrito e " +
+      "caixa alta.\n" +
+      "- TRANSCREVA o que está escrito. NÃO deduza pelo nome do produto: se o " +
+      "rótulo não declara, não invente. Um alergênico deduzido errado vira " +
+      "aviso errado numa etiqueta que alguém alérgico vai ler.\n" +
+      "- Separe cada alimento num item da lista, em minúsculo e sem 'e derivados' " +
+      "('leite', 'soja', 'trigo').\n" +
+      "- Glúten: se o rótulo disser 'contém glúten' ou citar trigo, centeio, " +
+      "cevada ou aveia, devolva 'glúten'.\n" +
+      "- Se a foto não mostrar a parte dos alergênicos, marque achouAviso como " +
+      "false e devolva as listas vazias. É melhor ela tirar outra foto do que " +
+      "receber uma resposta chutada.\n" +
+      "- Em 'frase', copie a declaração exatamente como está escrita.\n\n" +
+      NA_DUVIDA_DEIXE_VAZIO,
+    conteudo: [
+      { tipo: "imagem", base64: imagemBase64, tipoDeImagem },
+      { tipo: "texto", texto: "Quais alergênicos este rótulo declara?" },
+    ],
   });
 }
 

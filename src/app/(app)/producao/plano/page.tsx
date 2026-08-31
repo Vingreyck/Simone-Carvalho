@@ -11,6 +11,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EstadoVazio } from "@/components/estado-vazio";
 import { BotaoCopiar } from "@/components/botao-copiar";
 
+import { BotaoJaFiz } from "./botao-ja-fiz";
+
 export const metadata = { title: "O que fazer" };
 
 /** Só o que está apertado ganha cor — se tudo grita, nada é urgente. */
@@ -104,14 +106,26 @@ export default async function PlanoPage() {
                         ) : null}
                       </div>
 
-                      <span
-                        className={cn(
-                          "shrink-0 rounded-md px-2 py-0.5 text-xs font-medium",
-                          CLASSE_URGENCIA[linha.urgencia],
-                        )}
-                      >
-                        {ROTULO_URGENCIA[linha.urgencia]}
-                      </span>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span
+                          className={cn(
+                            "rounded-md px-2 py-0.5 text-xs font-medium",
+                            CLASSE_URGENCIA[linha.urgencia],
+                          )}
+                        >
+                          {ROTULO_URGENCIA[linha.urgencia]}
+                        </span>
+
+                        {linha.receitaId && linha.vezesDaReceita.greaterThan(0) ? (
+                          <BotaoJaFiz
+                            receitaId={linha.receitaId}
+                            vezes={linha.vezesDaReceita.toNumber()}
+                            produtoId={linha.produtoId}
+                            produtoNome={linha.produtoNome}
+                            quantidade={linha.quantidade.toNumber()}
+                          />
+                        ) : null}
+                      </div>
                     </div>
                   </li>
                 ))}

@@ -62,6 +62,85 @@ export const ALERGENOS_EM_ORDEM: Alergeno[] = [
 
 const POSICAO = new Map(ALERGENOS_EM_ORDEM.map((a, i) => [a, i]));
 
+/**
+ * Como o rótulo escreve cada alergênico → o valor da norma.
+ *
+ * A embalagem escreve em português corrido e cada fábrica de um jeito
+ * ("castanha-de-caju", "castanha de caju", "cast. caju"). Esta tabela é o que
+ * transforma isso no valor fechado do Anexo.
+ *
+ * Deliberadamente **não** tem chute: texto que não casa vira `null` e aparece
+ * pra ela resolver. Num campo que existe por causa de alergia, "não sei" é uma
+ * resposta melhor que um palpite.
+ */
+const SINONIMOS: Record<string, Alergeno> = {
+  gluten: "GLUTEN",
+  trigo: "GLUTEN",
+  centeio: "GLUTEN",
+  cevada: "GLUTEN",
+  aveia: "GLUTEN",
+  malte: "GLUTEN",
+  crustaceo: "CRUSTACEOS",
+  camarao: "CRUSTACEOS",
+  ovo: "OVOS",
+  ovos: "OVOS",
+  peixe: "PEIXES",
+  peixes: "PEIXES",
+  amendoim: "AMENDOIM",
+  soja: "SOJA",
+  leite: "LEITE",
+  lactose: "LEITE",
+  amendoa: "AMENDOA",
+  amendoas: "AMENDOA",
+  avela: "AVELA",
+  avelas: "AVELA",
+  "castanha de caju": "CASTANHA_DE_CAJU",
+  "castanha-de-caju": "CASTANHA_DE_CAJU",
+  caju: "CASTANHA_DE_CAJU",
+  "castanha do para": "CASTANHA_DO_PARA",
+  "castanha-do-para": "CASTANHA_DO_PARA",
+  "castanha do brasil": "CASTANHA_DO_PARA",
+  "castanha-do-brasil": "CASTANHA_DO_PARA",
+  macadamia: "MACADAMIA",
+  macadamias: "MACADAMIA",
+  noz: "NOZES",
+  nozes: "NOZES",
+  peca: "PECA",
+  pecas: "PECA",
+  "noz pecan": "PECA",
+  pecan: "PECA",
+  pistache: "PISTACHE",
+  pistaches: "PISTACHE",
+  pinoli: "PINOLI",
+  castanha: "CASTANHA",
+  castanhas: "CASTANHA",
+  latex: "LATEX",
+  "latex natural": "LATEX",
+};
+
+/**
+ * "CONTÉM LEITE" escrito no rótulo → `LEITE`.
+ * Devolve null quando não reconhece — e aí ela marca na mão.
+ */
+export function interpretarAlergeno(texto: string): Alergeno | null {
+  const limpo = texto
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    // "leite e derivados", "derivados de soja" → o alimento é o que importa
+    .replace(/\b(e\s+)?derivados?\b/g, "")
+    .replace(/[.,;:]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  // "derivados de soja" sobra como "de soja". Tiro o "de" só do começo, senão
+  // quebraria "castanha de caju", que precisa dele.
+  const semDe = limpo.replace(/^de\s+/, "");
+
+  return SINONIMOS[limpo] ?? SINONIMOS[semDe] ?? null;
+}
+
 export type InsumoParaAlergenos = {
   id: string;
   nome: string;

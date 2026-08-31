@@ -52,6 +52,11 @@ type Linha = {
   descricaoOriginal?: string;
   /** Palpite de casamento incerto: destaca a linha pra ela olhar */
   incerto?: boolean;
+  /**
+   * Insumo que a foto achou e ela ainda não tem cadastrado. Só vira registro
+   * de verdade quando ela confirma a compra.
+   */
+  novoInsumo?: { nome: string; unidadeBase: "G" | "ML" | "UN" } | null;
   quantidadeEmbalagens: string;
   tamanhoEmbalagem: string;
   unidadeEmbalagem: string;
@@ -164,6 +169,7 @@ export function FormularioCompra({
         insumoId: item.insumoId,
         descricaoOriginal: item.descricao,
         incerto: Boolean(item.insumoId) && !item.confiante,
+        novoInsumo: item.novoInsumo ?? null,
         quantidadeEmbalagens: String(item.quantidade || 1),
         tamanhoEmbalagem: item.tamanhoEmbalagem
           ? String(item.tamanhoEmbalagem)
@@ -197,7 +203,8 @@ export function FormularioCompra({
 
   const linhasValidas = linhas.filter(
     (l) =>
-      l.insumoId &&
+      // Vale também a linha que vai criar o insumo na hora de confirmar
+      (l.insumoId || l.novoInsumo) &&
       lerNumeroBR(l.quantidadeEmbalagens) > 0 &&
       lerNumeroBR(l.tamanhoEmbalagem) > 0 &&
       l.unidadeEmbalagem,
@@ -215,7 +222,8 @@ export function FormularioCompra({
         observacao: observacao || null,
         jaPago,
         itens: linhasValidas.map((l) => ({
-          insumoId: l.insumoId,
+          insumoId: l.insumoId ?? "",
+          novoInsumo: l.insumoId ? null : (l.novoInsumo ?? null),
           quantidadeEmbalagens: lerNumeroBR(l.quantidadeEmbalagens),
           tamanhoEmbalagem: lerNumeroBR(l.tamanhoEmbalagem),
           unidadeEmbalagem: l.unidadeEmbalagem,
@@ -554,11 +562,33 @@ function LinhaDeItem({
                 {linha.descricaoOriginal}
               </p>
             ) : null}
+            {!linha.insumoId && linha.novoInsumo ? (
+              /*
+                Insumo que ela ainda não tem. Em vez de parar a compra pra
+                mandar ela cadastrar, o sistema cria junto ao confirmar — mas
+                deixa claro que vai criar, e o seletor continua ali pra ela
+                apontar um insumo existente se preferir.
+              */
+              <div className="border-info/40 bg-info-soft/30 rounded-md border px-2.5 py-2">
+                <p className="text-info text-xs font-medium">
+                  Vou cadastrar &ldquo;{linha.novoInsumo.nome}&rdquo; ao
+                  confirmar
+                </p>
+                <p className="text-muted-foreground mt-0.5 text-xs">
+                  Medido em {ROTULO_UNIDADE_BASE[linha.novoInsumo.unidadeBase]}.
+                  Se já tem esse insumo com outro nome, escolha abaixo.
+                </p>
+              </div>
+            ) : null}
+
             <SeletorInsumo
               insumos={insumos}
               valor={linha.insumoId}
               onChange={onEscolherInsumo}
               idsFrequentes={frequentes}
+              placeholder={
+                linha.novoInsumo ? "Ou escolher um já cadastrado..." : undefined
+              }
             />
           </div>
 

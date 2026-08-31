@@ -23,7 +23,21 @@ export type Resultado = {
 };
 
 const esquemaItem = z.object({
-  insumoId: z.string().min(1, "Escolha o insumo."),
+  /** Vazio quando o insumo ainda não existe e vai ser criado por `novoInsumo` */
+  insumoId: z.string().default(""),
+  /**
+   * Insumo que a foto do cupom encontrou e ela ainda não tinha cadastrado.
+   *
+   * Criar aqui, junto com a compra, em vez de na hora da leitura: se ela
+   * desistir da compra, não sobra insumo fantasma no cadastro. E pra ela o
+   * efeito é o que importa — a foto resolve tudo, sem parar pra cadastrar.
+   */
+  novoInsumo: z
+    .object({
+      nome: z.string().trim().min(2).max(80),
+      unidadeBase: z.enum(["G", "ML", "UN"]),
+    })
+    .nullish(),
   quantidadeEmbalagens: z.coerce
     .number()
     .positive("Quantas embalagens você comprou?"),
@@ -45,6 +59,48 @@ const esquemaCompra = z.object({
   jaPago: z.boolean().default(false),
   itens: z.array(esquemaItem).min(1, "Adicione pelo menos um item."),
 });
+
+type ItemDaCompra = z.infer<typeof esquemaItem>;
+
+/**
+ * Cria os insumos que a foto do cupom encontrou e ela ainda não tinha.
+ *
+ * `upsert` pelo nome porque duas linhas do mesmo cupom podem propor o mesmo
+ * insumo, e porque ela pode já ter um com aquele nome que o casamento não
+ * achou — melhor reusar que duplicar.
+ *
+ * Nasce com `alergenosRevisados: false` de propósito: ninguém olhou o rótulo
+ * ainda, e marcar como conferido faria a ficha técnica afirmar "não contém
+ * nada" sem base.
+ */
+async function criarInsumosNovos(
+  itens: ItemDaCompra[],
+): Promise<ItemDaCompra[]> {
+  const resolvidos: ItemDaCompra[] = [];
+
+  for (const item of itens) {
+    if (item.insumoId || !item.novoInsumo) {
+      resolvidos.push(item);
+      continue;
+    }
+
+    const criado = await prisma.insumo.upsert({
+      where: { nome: item.novoInsumo.nome },
+      update: {},
+      create: {
+        nome: item.novoInsumo.nome,
+        unidadeBase: item.novoInsumo.unidadeBase,
+        categoria: "OUTROS",
+        alergenosRevisados: false,
+      },
+      select: { id: true },
+    });
+
+    resolvidos.push({ ...item, insumoId: criado.id });
+  }
+
+  return resolvidos;
+}
 
 /**
  * Lança uma compra.
@@ -77,7 +133,18 @@ export async function lancarCompra(
     };
   }
 
-  const { itens, valorFrete, jaPago, novoFornecedor, ...cabecalho } = dados.data;
+  const { itens: itensBrutos, valorFrete, jaPago, novoFornecedor, ...cabecalho } =
+    dados.data;
+
+  // Cria os insumos que vieram da foto e ela ainda não tinha. Antes da
+  // transação da compra porque um insumo criado sozinho não faz mal nenhum
+  // se a compra falhar depois — ele fica no cadastro, sem estoque nem preço.
+  const itens = await criarInsumosNovos(itensBrutos);
+
+  const semInsumo = itens.find((i) => !i.insumoId);
+  if (semInsumo) {
+    return { ok: false, erro: "Escolha o insumo de cada item." };
+  }
 
   // Carrega os insumos com as equivalências — precisa delas pra converter "lata" em gramas
   const insumos = await prisma.insumo.findMany({

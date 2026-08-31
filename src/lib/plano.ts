@@ -64,6 +64,12 @@ export type AFazer = {
   pedidos: { numero: number; cliente: string | null; quantidade: Decimal }[];
   /** Sem ficha técnica não dá pra saber o que gasta */
   semReceita: boolean;
+  /**
+   * O que o botão "Já fiz" precisa pra registrar a produção sem ela digitar
+   * nada de novo: qual receita e quantas vezes.
+   */
+  receitaId: string | null;
+  vezesDaReceita: Decimal;
 };
 
 export type FaltaComprar = {
@@ -159,6 +165,8 @@ export function montarPlano({
       urgencia,
       pedidos: [{ numero: item.pedidoNumero, cliente: item.cliente, quantidade }],
       semReceita: !produtos.get(item.produtoId)?.receitaId,
+      receitaId: produtos.get(item.produtoId)?.receitaId ?? null,
+      vezesDaReceita: new Decimal(0), // calculado depois, com o total somado
     });
   }
 
@@ -185,6 +193,8 @@ export function montarPlano({
     const vezes = linha.quantidade
       .times(new Decimal(produto.consumoDaReceita))
       .dividedBy(rendimento);
+
+    linha.vezesDaReceita = vezes;
 
     let necessidades;
     try {

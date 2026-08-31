@@ -120,11 +120,32 @@ Cupom e receita é um risco; **conversa do WhatsApp leva nome e telefone de
 cliente** — dado de terceiro, não dela. Se isso pesar, é essa leitura que
 justifica pôr a chave paga.
 
-Três leituras em `src/lib/ia/extracoes.ts`:
+Quatro leituras em `src/lib/ia/extracoes.ts`:
 
-1. **Foto do cupom → compra**
+1. **Foto do cupom → compra** — e o insumo que ela ainda não tem é **criado
+   junto**, com o `nomeLimpo` que a IA sugere ("ACUC REFINADO UNIAO 1KG" →
+   "Açúcar refinado"). Antes disso a foto travava: item desconhecido obrigava
+   ela a parar e cadastrar na mão.
+   O insumo só nasce quando ela **confirma a compra**, não na leitura — foto
+   descartada não deixa lixo no cadastro. Nasce com `alergenosRevisados: false`:
+   ninguém olhou o rótulo ainda.
 2. **Foto do caderno / texto solto → ficha técnica**
 3. **Conversa do WhatsApp → pedido**
+4. **Foto do rótulo → alergênicos** (`lerRotulo`)
+
+A leitura 4 é **transcrição, não dedução**: a embalagem é obrigada por lei a
+trazer a frase pronta ("ALÉRGICOS: CONTÉM LEITE"), e a IA só copia. Por isso é
+confiável num campo que existe por causa de alergia — diferente de adivinhar
+alergênico pelo nome do produto, que eu me recusei a fazer no seed.
+
+`interpretarAlergeno()` traduz o texto do rótulo pro valor da norma
+("castanha-de-caju", "leite e derivados" → `CASTANHA_DE_CAJU`, `LEITE`). O que
+não reconhece vira `null` e aparece na tela como "não reconheci: X" — nunca
+some em silêncio.
+
+⚠️ **`thinking_level` mexe MUITO no tempo.** No mesmo rótulo: `medium` levou
+100 s, `low` levou 30 s, leitura idêntica. Todas as extrações usam `low` por
+padrão — são transcrição, não raciocínio.
 
 ⚠️ **REGRA QUE NÃO SE NEGOCIA: a IA nunca grava.** Toda extração abre no
 formulário normal pra ela conferir. Um "1,5 kg" lido como "15 kg" corromperia o
@@ -249,6 +270,24 @@ existiam separados.
 - A lista de compras tem botão de copiar, pra ela levar no mercado.
 - `totalDeItens` = tipos de doce; `totalDeUnidades` = quantidade. O painel usa o
   segundo — "6 bolos" diz o tamanho do dia, "1 tipo" não diz nada.
+
+### Botão "Já fiz" — fecha o ciclo
+
+Antes dele o ciclo ficava aberto: a tela mandava fazer 6 bolos, ela fazia, e o
+estoque **não baixava** — teria que ir em Produção e digitar tudo de novo. Pior
+que o trabalho dobrado: quando ela esquecesse, o saldo viraria ficção e a
+própria lista de compras passaria a mentir.
+
+Reusa `registrarProducao`, então mantém baixa FIFO, custo real e recálculo do
+custo médio.
+
+⚠️ **Pedido PRONTO não entra no plano.** Com ele na lista, o item continuava na
+tela depois do "Já fiz" — e ela clicaria de novo, baixando o estoque **duas
+vezes**. Descoberto testando no navegador.
+
+O "Já fiz" só marca o pedido como PRONTO quando **todos** os itens dele são
+aquele produto. Pedido com dois doces fica como está: dizer que está pronto com
+metade feita sumiria com a outra metade da lista dela.
 
 ## 🗺️ Fases
 

@@ -45,7 +45,13 @@ export type InsumoDaLista = {
 
 type Filtro = "todos" | "acabando" | "sem-preco" | "arquivados";
 
-export function ListaInsumos({ insumos }: { insumos: InsumoDaLista[] }) {
+export function ListaInsumos({
+  insumos,
+  iaConfigurada,
+}: {
+  insumos: InsumoDaLista[];
+  iaConfigurada: boolean;
+}) {
   const [busca, setBusca] = useState("");
   const [categoria, setCategoria] = useState<CategoriaInsumo | null>(null);
   const [filtro, setFiltro] = useState<Filtro>("todos");
@@ -213,6 +219,7 @@ export function ListaInsumos({ insumos }: { insumos: InsumoDaLista[] }) {
         aberto={dialogoAberto}
         onOpenChange={setDialogoAberto}
         insumo={emEdicao}
+        iaConfigurada={iaConfigurada}
       />
     </div>
   );
