@@ -140,10 +140,18 @@ Quatro leituras em `src/lib/ia/extracoes.ts`:
      vinham na mesma nota e virariam insumo de confeitaria. `ehIngrediente` na
      leitura separa, e só os ingredientes entram no formulário.
 
-   ⚠️ **Mas `ehIngrediente` da IA não manda sozinho:** num teste ela marcou
-   "FARINHA FEIRA NOVA" como compra de casa. Se o item **casou com um insumo do
-   cadastro dela**, é ingrediente e ponto — o cadastro dela vale mais que o
-   palpite. Sem essa trava a farinha sumiria da compra em silêncio.
+   ⚠️ **Mas `ehIngrediente` da IA não manda sozinho.** Três travas, porque o
+   erro dessa classificação é o item **sumir em silêncio**, que é o pior tipo:
+
+   1. Item que **casou com insumo do cadastro dela** é ingrediente e ponto — o
+      cadastro dela vale mais que o palpite. (Num teste a IA marcou "FARINHA
+      FEIRA NOVA" como compra de casa.)
+   2. O que fica de fora aparece **pelo nome** no aviso, não como contagem. Se
+      ela ainda não tem o insumo cadastrado, a trava 1 não protege — só o nome
+      à vista deixa ela perceber e adicionar.
+   3. Se a IA disser que **nada** na nota é ingrediente, o palpite é ignorado e
+      tudo entra: nota de fornecedor de confeitaria é só ingrediente, e engolir
+      a compra inteira seria bem pior que ela apagar algumas linhas.
 2. **Foto do caderno / texto solto → ficha técnica**
 3. **Conversa do WhatsApp → pedido**
 4. **Foto do rótulo → alergênicos** (`lerRotulo`)

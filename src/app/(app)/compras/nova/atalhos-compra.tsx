@@ -84,30 +84,31 @@ export function AtalhosCompra({
       const ingredientes = resultado.itens.filter(
         (i) => i.ehIngrediente !== false,
       );
-      const deCasa = resultado.itens.length - ingredientes.length;
+      const deCasa = resultado.itens.filter((i) => i.ehIngrediente === false);
 
-      if (ingredientes.length === 0) {
-        toast.error(
-          "Nessa nota só achei compra de casa, nenhum ingrediente de doceria.",
-        );
-        return;
-      }
+      /*
+        Se a IA achou que NADA na nota é ingrediente, o palpite dela é que está
+        errado — nota de fornecedor de confeitaria é só ingrediente. Melhor
+        trazer tudo e deixar ela apagar do que engolir a compra inteira.
+      */
+      const suspeito = ingredientes.length === 0;
+      const paraOFormulario = suspeito ? resultado.itens : ingredientes;
 
       onPreencher({
-        itens: ingredientes,
+        itens: paraOFormulario,
         fornecedor: resultado.fornecedor,
         data: resultado.data,
         notaFiscal: resultado.notaFiscal,
       });
 
-      const semCasar = ingredientes.filter((i) => !i.insumoId).length;
-      const duvidosos = ingredientes.filter(
+      const semCasar = paraOFormulario.filter((i) => !i.insumoId).length;
+      const duvidosos = paraOFormulario.filter(
         (i) => i.insumoId && !i.confiante,
       ).length;
-      const semPeso = ingredientes.filter((i) => i.precisaPeso).length;
+      const semPeso = paraOFormulario.filter((i) => i.precisaPeso).length;
 
       toast.success(
-        `Li ${ingredientes.length} ${ingredientes.length === 1 ? "ingrediente" : "ingredientes"}. Confira antes de confirmar.`,
+        `Li ${paraOFormulario.length} ${paraOFormulario.length === 1 ? "item" : "itens"}. Confira antes de confirmar.`,
       );
 
       // O total da nota é a melhor conferência que existe: se bate com a soma
@@ -125,9 +126,19 @@ export function AtalhosCompra({
         );
       }
 
-      if (deCasa > 0) {
+      if (suspeito) {
         partes.push(
-          `Deixei de fora ${deCasa} ${deCasa === 1 ? "item que não é" : "itens que não são"} de doceria (compra de casa).`,
+          "Não reconheci nada nessa nota como ingrediente de doceria, então trouxe tudo. Apague o que não for.",
+        );
+      } else if (deCasa.length > 0) {
+        /*
+          Nomeia o que ficou de fora em vez de só contar.
+          Se a IA errar e jogar fora um ingrediente que ela ainda não tem
+          cadastrado, nada no sistema avisaria — o item simplesmente sumiria.
+          Com o nome à vista ela percebe e adiciona.
+        */
+        partes.push(
+          `Deixei de fora (parece compra de casa): ${deCasa.map((i) => i.descricao).join(", ")}.`,
         );
       }
 
