@@ -2,11 +2,29 @@ import { prisma } from "@/lib/db";
 import { iaEstaConfigurada } from "@/lib/ia/cliente";
 import { situacaoEstoque } from "@/lib/estoque";
 
-import { ListaInsumos, type InsumoDaLista } from "./lista-insumos";
+import {
+  ListaInsumos,
+  type Filtro,
+  type InsumoDaLista,
+} from "./lista-insumos";
 
 export const dynamic = "force-dynamic";
 
-export default async function PaginaInsumos() {
+const FILTROS_DA_URL: Filtro[] = [
+  "todos",
+  "acabando",
+  "sem-preco",
+  "sem-alergeno",
+  "arquivados",
+];
+
+export default async function PaginaInsumos({
+  searchParams,
+}: {
+  searchParams: Promise<{ filtro?: string }>;
+}) {
+  const { filtro } = await searchParams;
+
   const [insumos, saldos] = await Promise.all([
     prisma.insumo.findMany({
       orderBy: { nome: "asc" },
@@ -65,5 +83,13 @@ export default async function PaginaInsumos() {
     };
   });
 
-  return <ListaInsumos insumos={lista} iaConfigurada={iaEstaConfigurada()} />;
+  return (
+    <ListaInsumos
+      insumos={lista}
+      iaConfigurada={iaEstaConfigurada()}
+      filtroInicial={
+        FILTROS_DA_URL.includes(filtro as Filtro) ? (filtro as Filtro) : "todos"
+      }
+    />
+  );
 }

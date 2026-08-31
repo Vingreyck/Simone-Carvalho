@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { faturamentoMedioMedido } from "@/server/faturamento";
 import { CabecalhoPagina } from "@/components/cabecalho-pagina";
 
 import { FormularioPrecificacao } from "./formulario-precificacao";
@@ -8,9 +9,10 @@ import { FormularioSenha } from "./formulario-senha";
 export const dynamic = "force-dynamic";
 
 export default async function PaginaAjustes() {
-  const [precificacao, negocio] = await Promise.all([
+  const [precificacao, negocio, medido] = await Promise.all([
     prisma.configPrecificacao.findUnique({ where: { id: "default" } }),
     prisma.configNegocio.findUnique({ where: { id: "default" } }),
+    faturamentoMedioMedido(),
   ]);
 
   return (
@@ -33,6 +35,7 @@ export default async function PaginaAjustes() {
           alertaVariacaoPreco: Number(precificacao?.alertaVariacaoPreco ?? 10),
           diasAlertaValidade: precificacao?.diasAlertaValidade ?? 7,
         }}
+        faturamentoMedido={medido === null ? null : Number(medido)}
       />
 
       <FormularioNegocio

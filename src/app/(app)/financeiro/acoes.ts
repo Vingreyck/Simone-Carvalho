@@ -8,6 +8,7 @@ import { prisma } from "@/lib/db";
 import { exigirSessao } from "@/lib/auth";
 import { lerDataLocal } from "@/lib/format";
 import { percentualDeCustosFixos } from "@/lib/precificacao";
+import { faturamentoMedioMedido } from "@/server/faturamento";
 
 export type Resultado = { ok: boolean; erro?: string; id?: string };
 
@@ -172,17 +173,29 @@ export async function excluirCustoFixo(id: string): Promise<Resultado> {
  * todos os doces sobe pra cobrir isso.
  */
 export async function recalcularPercentualCustosFixos(): Promise<void> {
-  const [custos, config] = await Promise.all([
+  const [custos, config, medido] = await Promise.all([
     prisma.custoFixoMensal.findMany({
       where: { ativo: true },
       select: { valor: true },
     }),
     prisma.configPrecificacao.findUnique({ where: { id: "default" } }),
+    faturamentoMedioMedido(),
   ]);
 
-  const faturamento = new Decimal(config?.faturamentoMedioMensal ?? 0);
+  /*
+    O faturamento medido ganha do digitado.
 
-  // Sem faturamento informado não dá pra ratear — mantém o que ela digitou à mão
+    O número que ela digita em Ajustes é um palpite dado uma vez; as vendas
+    registradas são um fato que se atualiza sozinho. Como o divisor do markup
+    inteiro depende disso, um palpite velho erra o preço de TODO doce em
+    silêncio — ela não tem como perceber olhando a tela.
+
+    O campo digitado continua valendo enquanto não houver histórico. Ele não é
+    sobrescrito: se fosse, a correção dela sumiria sozinha no dia seguinte.
+  */
+  const faturamento = medido ?? new Decimal(config?.faturamentoMedioMensal ?? 0);
+
+  // Sem faturamento nenhum não dá pra ratear — mantém o percentual como está
   if (faturamento.lessThanOrEqualTo(0)) return;
 
   const total = custos.reduce(

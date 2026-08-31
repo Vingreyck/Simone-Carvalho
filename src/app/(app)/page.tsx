@@ -5,6 +5,7 @@ import {
   ChefHat,
   ClipboardList,
   CookingPot,
+  ShieldAlert,
   ShoppingCart,
   Tags,
   TrendingDown,
@@ -14,12 +15,15 @@ import { prisma } from "@/lib/db";
 import { carregarBaseDeCusto, custoDeProduto } from "@/server/custos";
 import { analisarPreco, calcularPrecoSugerido } from "@/lib/precificacao";
 import { situacaoEstoque, situacaoValidade } from "@/lib/estoque";
+import { manutencaoVencida } from "@/lib/manutencao";
 import { formatarDataRelativa, formatarMoeda, formatarNumero } from "@/lib/format";
 import { formatarQuantidade } from "@/lib/unidades";
 import { cn } from "@/lib/utils";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { carregarPlano } from "@/server/plano";
+import { insumosSemConferirAlergenos } from "@/server/alergenos";
+import { ManutencaoAutomatica } from "./manutencao-automatica";
 import { PrimeirosPassos } from "./primeiros-passos";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +41,8 @@ export default async function PaginaPainel() {
     pendentes,
     contagens,
     plano,
+    semConferirRotulo,
+    marcaDaManutencao,
   ] = await Promise.all([
     prisma.insumo.findMany({
       where: { ativo: true },
@@ -81,9 +87,18 @@ export default async function PaginaPainel() {
       prisma.produto.count({ where: { ativo: true } }),
     ]),
     carregarPlano(),
+    insumosSemConferirAlergenos(),
+    prisma.manutencaoAutomatica.findUnique({
+      where: { id: "default" },
+      select: { ultimaExecucao: true },
+    }),
   ]);
 
   const [totalInsumos, totalCompras, totalReceitas, totalProdutos] = contagens;
+
+  // Quem decide se a rotina automática roda é o servidor: o gatilho só é
+  // montado quando ela está vencida, então o F5 do dia a dia não custa nada.
+  const precisaManutencao = manutencaoVencida(marcaDaManutencao?.ultimaExecucao);
 
   const cfg = {
     valorHoraMaoDeObra: config?.valorHoraMaoDeObra?.toString() ?? "0",
@@ -100,16 +115,19 @@ export default async function PaginaPainel() {
 
   if (aindaVazio) {
     return (
-      <PrimeirosPassos
-        totalInsumos={totalInsumos}
-        temCompra={totalCompras > 0}
-        temReceita={totalReceitas > 0}
-        temProduto={totalProdutos > 0}
-        precificacaoConfigurada={
-          Number(config?.valorHoraMaoDeObra ?? 0) > 0 ||
-          Number(config?.percentualCustosFixos ?? 0) > 0
-        }
-      />
+      <>
+        {precisaManutencao ? <ManutencaoAutomatica /> : null}
+        <PrimeirosPassos
+          totalInsumos={totalInsumos}
+          temCompra={totalCompras > 0}
+          temReceita={totalReceitas > 0}
+          temProduto={totalProdutos > 0}
+          precificacaoConfigurada={
+            Number(config?.valorHoraMaoDeObra ?? 0) > 0 ||
+            Number(config?.percentualCustosFixos ?? 0) > 0
+          }
+        />
+      </>
     );
   }
 
@@ -179,11 +197,14 @@ export default async function PaginaPainel() {
     vencendo.length > 0 ||
     noPrejuizo.length > 0 ||
     vencidas.length > 0 ||
+    semConferirRotulo > 0 ||
     plano.temAtrasado ||
     plano.faltaComprar.length > 0;
 
   return (
     <div className="mx-auto max-w-5xl space-y-5">
+      {precisaManutencao ? <ManutencaoAutomatica /> : null}
+
       {/* ------------------------------------------------------- números */}
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         <Numero titulo="Entrou este mês" valor={entrou} className="text-success" />
@@ -244,6 +265,30 @@ export default async function PaginaPainel() {
               )}
               href="/financeiro"
               acao="Ver contas"
+            />
+          ) : null}
+
+          {/*
+            Rótulo não conferido.
+
+            Insumo sem revisão não afirma "não contém nada" — ele só não sabe.
+            Enquanto tiver um na lista, TODA ficha técnica que o usa sai com a
+            ressalva, e a etiqueta dela fica menos confiável do que parece.
+            Ficava invisível: a contagem existia em `insumosSemConferirAlergenos`
+            e não era chamada em lugar nenhum.
+
+            Tom de aviso, não de perigo, e depois dos alertas do dia: é uma fila
+            que ela vai limpando, não uma emergência de hoje. Alerta vermelho
+            permanente vira alerta que ela pula.
+          */}
+          {semConferirRotulo > 0 ? (
+            <Alerta
+              tom="warning"
+              icone={ShieldAlert}
+              titulo={`${semConferirRotulo} ${semConferirRotulo === 1 ? "insumo sem o rótulo conferido" : "insumos sem o rótulo conferido"}`}
+              texto="Enquanto não conferir, o aviso de alergênico das receitas sai com ressalva. Dá pra ler pela foto do rótulo."
+              href="/insumos?filtro=sem-alergeno"
+              acao="Conferir"
             />
           ) : null}
 

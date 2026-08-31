@@ -27,7 +27,14 @@ type Valores = {
   diasAlertaValidade: number;
 };
 
-export function FormularioPrecificacao({ valores }: { valores: Valores }) {
+export function FormularioPrecificacao({
+  valores,
+  faturamentoMedido,
+}: {
+  valores: Valores;
+  /** Média das vendas registradas; null enquanto não houver histórico */
+  faturamentoMedido: number | null;
+}) {
   const router = useRouter();
   const [estado, acao, enviando] = useActionState<Resultado, FormData>(
     salvarPrecificacao,
@@ -190,14 +197,48 @@ export function FormularioPrecificacao({ valores }: { valores: Valores }) {
               onChange={(v) => mudar("diasAlertaValidade", v)}
             />
 
-            <Campo
-              id="faturamentoMedioMensal"
-              rotulo="Quanto você fatura por mês, mais ou menos"
-              ajuda="Usado pra calcular sozinho o percentual de custos fixos quando você cadastrar as contas do mês."
-              prefixo="R$"
-              valor={campos.faturamentoMedioMensal}
-              onChange={(v) => mudar("faturamentoMedioMensal", v)}
-            />
+            {/*
+              Enquanto não há histórico, esse número é o único que existe pra
+              ratear os custos fixos. Assim que há, o sistema para de perguntar
+              e passa a medir — e diz isso na cara dela, porque um campo que
+              parece valer e não vale mais é pior do que campo nenhum.
+
+              O valor digitado NÃO é sobrescrito: se fosse, a correção dela
+              sumiria sozinha na próxima manutenção.
+            */}
+            {faturamentoMedido !== null ? (
+              <div className="space-y-1.5">
+                {/*
+                  Sem o campo na tela, o valor precisa viajar assim mesmo: o
+                  formulário salva a configuração inteira de uma vez, e um
+                  campo ausente viraria zero — apagando a estimativa que volta a
+                  valer se ela ficar meses sem lançar venda.
+                */}
+                <input
+                  type="hidden"
+                  name="faturamentoMedioMensal"
+                  value={campos.faturamentoMedioMensal}
+                />
+                <Label>Quanto você fatura por mês</Label>
+                <p className="num text-xl font-semibold">
+                  {formatarMoeda(faturamentoMedido)}
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  Calculado pelas suas vendas dos últimos meses fechados. É este
+                  valor que o sistema usa pra dividir os custos fixos entre os
+                  doces — você não precisa mais estimar.
+                </p>
+              </div>
+            ) : (
+              <Campo
+                id="faturamentoMedioMensal"
+                rotulo="Quanto você fatura por mês, mais ou menos"
+                ajuda="Serve pra calcular o percentual de custos fixos. Assim que você tiver alguns meses de vendas lançadas, o sistema passa a calcular sozinho e não pergunta mais."
+                prefixo="R$"
+                valor={campos.faturamentoMedioMensal}
+                onChange={(v) => mudar("faturamentoMedioMensal", v)}
+              />
+            )}
           </div>
 
           {estado.erro ? (

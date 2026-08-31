@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { iaEstaConfigurada } from "@/lib/ia/cliente";
 import { insumosMaisUsados } from "@/server/frequentes";
+import { prazosDeValidadePorInsumo } from "@/server/validade";
 import { Button } from "@/components/ui/button";
 import { CabecalhoPagina } from "@/components/cabecalho-pagina";
 
@@ -12,7 +13,7 @@ import { FormularioCompra, type InsumoDoFormulario } from "./formulario-compra";
 export const dynamic = "force-dynamic";
 
 export default async function PaginaNovaCompra() {
-  const [insumos, fornecedores, frequentes] = await Promise.all([
+  const [insumos, fornecedores, frequentes, prazos] = await Promise.all([
     prisma.insumo.findMany({
       where: { ativo: true },
       orderBy: { nome: "asc" },
@@ -34,6 +35,7 @@ export default async function PaginaNovaCompra() {
       select: { id: true, nome: true },
     }),
     insumosMaisUsados(),
+    prazosDeValidadePorInsumo(),
   ]);
 
   const lista: InsumoDoFormulario[] = insumos.map((i) => ({
@@ -42,6 +44,7 @@ export default async function PaginaNovaCompra() {
     categoria: i.categoria,
     unidadeBase: i.unidadeBase,
     perecivel: i.perecivel,
+    prazoValidadeDias: prazos[i.id] ?? null,
     equivalencias: i.equivalencias.map((e) => ({
       nome: e.nome,
       quantidadeBase: Number(e.quantidadeBase),

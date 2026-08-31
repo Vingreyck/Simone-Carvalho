@@ -7,6 +7,7 @@ import {
   calcularEntradaDeCompra,
   ordenarLotesFifo,
   planejarBaixa,
+  prazoDeValidade,
   situacaoEstoque,
   situacaoValidade,
   somarSaldo,
@@ -273,5 +274,49 @@ describe("variacaoPercentual", () => {
 
   it("sem preço anterior, não inventa variação", () => {
     expect(variacaoPercentual(0, 5)).toBeNull();
+  });
+});
+
+describe("prazoDeValidade", () => {
+  function lote(entrada: string, validade: string | null) {
+    return {
+      dataEntrada: new Date(entrada),
+      validade: validade ? new Date(validade) : null,
+    };
+  }
+
+  it("mede quantos dias o insumo costuma durar", () => {
+    const dias = prazoDeValidade([
+      lote("2026-01-01", "2026-04-01"), // 90
+      lote("2026-03-01", "2026-05-30"), // 90
+    ]);
+
+    expect(dias).toBe(90);
+  });
+
+  /*
+    Um lote comprado em promoção perto do vencimento puxaria a MÉDIA pra baixo
+    e faria o sistema sugerir validade curta demais em todas as compras
+    seguintes. A mediana aguenta o ponto fora da curva.
+  */
+  it("usa a mediana, então um lote perto do vencimento não estraga o resto", () => {
+    const dias = prazoDeValidade([
+      lote("2026-01-01", "2026-01-06"), // 5 — promoção
+      lote("2026-02-01", "2026-05-02"), // 90
+      lote("2026-03-01", "2026-05-30"), // 90
+    ]);
+
+    expect(dias).toBe(90);
+  });
+
+  it("sem nenhum lote com validade, não inventa data", () => {
+    expect(prazoDeValidade([])).toBeNull();
+    expect(prazoDeValidade([lote("2026-01-01", null)])).toBeNull();
+  });
+
+  it("descarta prazo negativo e prazo absurdo", () => {
+    // Validade anterior à entrada é erro de digitação, não prazo
+    expect(prazoDeValidade([lote("2026-05-01", "2026-01-01")])).toBeNull();
+    expect(prazoDeValidade([lote("2026-01-01", "2050-01-01")])).toBeNull();
   });
 });

@@ -237,6 +237,47 @@ export function situacaoValidade(
   return "ok";
 }
 
+/** Prazo maior que isso é erro de digitação, não validade. */
+const PRAZO_MAXIMO_DIAS = 1825; // 5 anos
+
+/**
+ * Quantos dias costuma durar um insumo, olhando os lotes anteriores.
+ *
+ * Serve pra pré-preencher a validade na tela de compra. Prazo de validade é
+ * uma característica do produto, não da compra: a farinha daquela marca vence
+ * sempre uns 8 meses depois de sair da fábrica. Digitar isso item por item, em
+ * toda compra, é trabalho que o sistema já tinha como poupar.
+ *
+ * Usa a MEDIANA, não a média: um lote comprado em promoção perto do vencimento
+ * puxaria a média pra baixo e faria o sistema sugerir uma validade curta demais
+ * pra todos os próximos.
+ *
+ * Devolve `null` quando nenhum lote anterior tinha validade — aí o campo
+ * continua em branco, que é melhor que uma data inventada num campo que serve
+ * pra ela não usar ingrediente estragado.
+ */
+export function prazoDeValidade(
+  lotes: { dataEntrada: Date; validade: Date | null }[],
+): number | null {
+  const prazos = lotes
+    .filter((l) => l.validade)
+    .map((l) =>
+      Math.round(
+        (l.validade!.getTime() - l.dataEntrada.getTime()) / 86_400_000,
+      ),
+    )
+    .filter((dias) => dias > 0 && dias <= PRAZO_MAXIMO_DIAS)
+    .sort((a, b) => a - b);
+
+  if (prazos.length === 0) return null;
+
+  const meio = Math.floor(prazos.length / 2);
+
+  return prazos.length % 2 === 1
+    ? prazos[meio]!
+    : Math.round((prazos[meio - 1]! + prazos[meio]!) / 2);
+}
+
 /**
  * Quanto o preço mudou entre duas compras, em %.
  * Positivo = subiu. É o que dispara "o chocolate subiu 18%".

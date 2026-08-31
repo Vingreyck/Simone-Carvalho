@@ -312,6 +312,86 @@ O "Já fiz" só marca o pedido como PRONTO quando **todos** os itens dele são
 aquele produto. Pedido com dois doces fica como está: dizer que está pronto com
 metade feita sumiria com a outra metade da lista dela.
 
+## 🤖 Manutenção automática (Fase 7)
+
+Uma auditoria do sistema inteiro achou cinco coisas que ele **sabia fazer e não
+fazia sozinho**. Duas delas eram do pior tipo: funcionalidade construída
+inteira que nunca ligava, então ela nunca ia ver.
+
+O Railway roda um serviço web só, **sem agendador**. Então a rotina é disparada
+quando ela abre o painel: o servidor decide (`manutencaoVencida`) e só monta o
+gatilho quando está vencida — F5 do dia a dia não custa requisição nenhuma.
+`ManutencaoAutomatica.ultimaExecucao` é marcado **antes** do trabalho, senão
+celular e computador abertos junto rodariam em paralelo. Cada tarefa falha
+sozinha: manutenção quebrada não pode derrubar o painel.
+
+### 1. Faturamento medido, não perguntado
+
+`%CustosFixos = contas fixas ÷ faturamento`, e o faturamento era **digitado em
+Ajustes**. Digitar uma vez e nunca mais deixava o divisor do markup errado — e
+o preço sugerido de **todo** doce erra junto, em silêncio.
+
+Agora `faturamentoMedioMedido()` mede os `Lancamento` RECEITA **PAGO**
+(encomenda confirmada e não paga não é faturamento — entraria otimista e
+baixaria o preço, que é o erro que este sistema existe pra evitar).
+
+- **Mês corrente não entra** — no dia 3 ele tem 3 dias de venda; entraria puxando
+  a média pra baixo e subindo o preço de tudo todo dia 1º.
+- **Mês zerado não entra** — zero quase nunca é "não vendeu", é "não lançou".
+- **Mínimo de 2 meses** com venda; abaixo disso vale o número digitado.
+- O campo digitado **não é sobrescrito** — se fosse, a correção dela sumiria na
+  manutenção seguinte. Com histórico, o Ajustes troca o campo pelo valor medido
+  e explica; sem histórico, o campo volta. Um `input hidden` carrega o valor
+  antigo, senão salvar o formulário zeraria a estimativa.
+
+### 2. Estoque mínimo calculado do consumo
+
+`situacaoEstoque` devolve "ok" quando o mínimo é 0, e o seed **não define mínimo
+em nenhum dos 65 insumos**. Resultado: o alerta de "insumo acabando" e a lista
+de compras por estoque **nunca apareciam**. Ninguém configura 65 itens na mão.
+
+`minimo = consumo diário × intervalo entre as compras dela`. A cobertura é o
+intervalo real (das datas de `Compra`), não um número redondo: cruzar o mínimo
+passa a significar "sobra até a próxima ida ao mercado", e `situacaoEstoque`
+ainda marca crítico na metade disso.
+
+- Teto de 45 dias — sem ele, corante comprado a cada 6 meses viveria em alerta.
+- Piso de 7 dias — sem ele, insumo comprado toda semana avisaria tarde demais.
+- Precisa de 30 dias de histórico; insumo novo tem consumo diário que parece
+  enorme só porque o período é curto.
+- Arredonda **pra cima** (avisa antes, nunca depois) e pra número de cabeça:
+  1.847 g vira 1.900 g, porque o mínimo aparece na tela dela.
+- ⚠️ Só preenche quem está em **0**. Número que ela escolheu nunca é tocado — e
+  o `where estoqueMinimo: 0` está repetido no `updateMany` porque ela pode ter
+  digitado entre o cálculo e a gravação.
+
+### 3. Contas fixas do mês, sem botão
+
+`gerarContasDoMes` existia e era um botão que ela tinha que lembrar de apertar.
+Esquecer significa "Saiu este mês" mentindo pra menos e alerta de conta vencida
+que não dispara. Já era idempotente, então virou tarefa da rotina.
+
+### 4. Fila de rótulo não conferido
+
+`insumosSemConferirAlergenos()` estava escrita e **não era chamada em lugar
+nenhum** — mesmo caso do `receitasAfetadasPor` antes do aviso de preço. Agora é
+alerta no painel e filtro em `/insumos?filtro=sem-alergeno`.
+
+Tom de **aviso**, não de perigo, e depois dos alertas do dia: é uma fila que ela
+vai limpando, não emergência de hoje. Alerta vermelho permanente vira alerta que
+ela pula — e aí o de verdade passa junto.
+
+### 5. Validade sugerida na compra
+
+Prazo de validade é característica do **produto**, não da compra. `prazoDeValidade`
+usa a **mediana** dos lotes anteriores, não a média: um lote de promoção comprado
+perto do vencimento puxaria a média e faria o sistema sugerir validade curta
+demais em todas as compras seguintes. Descarta prazo negativo e acima de 5 anos.
+
+A data vem marcada como sugestão, com o aviso "confira na embalagem", e o rótulo
+some assim que ela mexe no campo — data preenchida sozinha precisa se anunciar,
+senão ela acha que digitou e não confere.
+
 ## 🗺️ Fases
 
 | Fase | Módulo | Situação |
@@ -323,6 +403,7 @@ metade feita sumiria com a outra metade da lista dela.
 | 4 | Vendas e Encomendas | ✅ pronta |
 | 5 | Câmeras ao vivo | ✅ pronta |
 | 6 | Atalhos de agilidade (IA + sem IA) | ✅ pronta |
+| 7 | Manutenção automática | ✅ pronta |
 | — | Portal do cliente + WhatsApp | só quando ela pedir |
 
 O `schema.prisma` já cobre **todas** as fases e está migrado. As próximas fases são

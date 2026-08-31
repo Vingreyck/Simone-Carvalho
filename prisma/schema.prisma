@@ -741,3 +741,22 @@ model ApelidoInsumo {
   @@index([insumoId])
   @@map("apelidos_insumo")
 }
+
+// ===========================================================================
+// MANUTENÇÃO AUTOMÁTICA
+// ===========================================================================
+
+/// Marca quando a rotina automática rodou pela última vez.
+///
+/// O sistema roda no Railway como um serviço web só, sem agendador. Então a
+/// rotina que gera as contas do mês, remede o faturamento e preenche o estoque
+/// mínimo é disparada quando ela abre o painel — e esta linha é o que impede
+/// de rodar de novo a cada F5.
+///
+/// Linha única, id fixo "default", igual às outras configurações.
+model ManutencaoAutomatica {
+  id             String    @id @default("default")
+  ultimaExecucao DateTime?
+
+  @@map("manutencao_automatica")
+}

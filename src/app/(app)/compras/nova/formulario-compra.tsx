@@ -42,8 +42,17 @@ export type InsumoDoFormulario = {
   categoria: CategoriaInsumo;
   unidadeBase: UnidadeBase;
   perecivel: boolean;
+  /** Quanto o insumo costuma durar, medido nas compras anteriores */
+  prazoValidadeDias: number | null;
   equivalencias: { nome: string; quantidadeBase: number }[];
 };
+
+/** Hoje + N dias, no formato do input de data. */
+function emDias(dias: number): string {
+  const data = new Date();
+  data.setDate(data.getDate() + dias);
+  return data.toISOString().slice(0, 10);
+}
 
 type Linha = {
   chave: string;
@@ -64,6 +73,8 @@ type Linha = {
   unidadeEmbalagem: string;
   valorTotal: string;
   validade: string;
+  /** A data veio do prazo das compras anteriores, não dela */
+  validadeSugerida?: boolean;
 };
 
 function linhaVazia(): Linha {
@@ -135,25 +146,61 @@ export function FormularioCompra({
 
   function atualizar(chave: string, campo: keyof Linha, valor: string) {
     setLinhas((atual) =>
-      atual.map((l) => (l.chave === chave ? { ...l, [campo]: valor } : l)),
+      atual.map((l) =>
+        l.chave === chave
+          ? {
+              ...l,
+              [campo]: valor,
+              // Mexeu na data: agora ela é dela, e o rótulo de sugestão sai
+              ...(campo === "validade" ? { validadeSugerida: false } : null),
+            }
+          : l,
+      ),
     );
   }
 
-  /** Ao escolher o insumo, já sugere a unidade mais provável da embalagem. */
+  /**
+   * O que dá pra preencher sozinho quando ela escolhe o insumo: a unidade mais
+   * provável da embalagem e a validade, calculada do prazo das compras
+   * anteriores daquele insumo.
+   */
+  function preenchidoPeloInsumo(insumo: InsumoDoFormulario | undefined) {
+    if (!insumo) return { unidade: "", validade: "" };
+
+    const unidade =
+      insumo.unidadeBase === "G" ? "kg" : insumo.unidadeBase === "ML" ? "l" : "un";
+
+    /*
+      Prazo de validade é característica do produto, não da compra: a farinha
+      daquela marca vence sempre uns tantos meses depois. Digitar isso item por
+      item, em toda compra, é trabalho que o sistema já tinha como poupar — ele
+      tem a data de entrada e a validade de cada lote anterior.
+
+      Vem marcada como sugestão e a data fica à vista: é ela quem confere
+      contra a embalagem.
+    */
+    const validade =
+      insumo.perecivel && insumo.prazoValidadeDias
+        ? emDias(insumo.prazoValidadeDias)
+        : "";
+
+    return { unidade, validade };
+  }
+
   function escolherInsumo(chave: string, insumoId: string) {
-    const insumo = porId.get(insumoId);
-    const sugerida = insumo
-      ? insumo.unidadeBase === "G"
-        ? "kg"
-        : insumo.unidadeBase === "ML"
-          ? "l"
-          : "un"
-      : "";
+    const { unidade, validade } = preenchidoPeloInsumo(porId.get(insumoId));
 
     setLinhas((atual) =>
       atual.map((l) =>
         l.chave === chave
-          ? { ...l, insumoId, unidadeEmbalagem: l.unidadeEmbalagem || sugerida }
+          ? {
+              ...l,
+              insumoId,
+              unidadeEmbalagem: l.unidadeEmbalagem || unidade,
+              // Nunca sobrescreve uma data que ela já digitou
+              validade: l.validade || validade,
+              validadeSugerida: !l.validade && Boolean(validade),
+            }
           : l,
       ),
     );
@@ -166,24 +213,33 @@ export function FormularioCompra({
    */
   function preencherComAtalho(resultado: ResultadoDoAtalho) {
     setLinhas(
-      resultado.itens.map((item) => ({
-        chave: crypto.randomUUID(),
-        insumoId: item.insumoId,
-        descricaoOriginal: item.descricao,
-        incerto: Boolean(item.insumoId) && !item.confiante,
-        novoInsumo: item.novoInsumo ?? null,
-        precisaPeso: item.precisaPeso ?? false,
-        quantidadeEmbalagens: String(item.quantidade || 1),
-        // Sem peso na nota o campo nasce VAZIO de propósito: "1" seria um
-        // número plausível e errado, e ela confirmaria sem perceber
-        tamanhoEmbalagem:
-          item.precisaPeso || !item.tamanhoEmbalagem
-            ? ""
-            : String(item.tamanhoEmbalagem),
-        unidadeEmbalagem: item.unidade,
-        valorTotal: item.valorTotal ? String(item.valorTotal) : "",
-        validade: "",
-      })),
+      resultado.itens.map((item) => {
+        // A nota fiscal quase nunca traz validade; o prazo das compras
+        // anteriores traz.
+        const { validade } = preenchidoPeloInsumo(
+          item.insumoId ? porId.get(item.insumoId) : undefined,
+        );
+
+        return {
+          chave: crypto.randomUUID(),
+          insumoId: item.insumoId,
+          descricaoOriginal: item.descricao,
+          incerto: Boolean(item.insumoId) && !item.confiante,
+          novoInsumo: item.novoInsumo ?? null,
+          precisaPeso: item.precisaPeso ?? false,
+          quantidadeEmbalagens: String(item.quantidade || 1),
+          // Sem peso na nota o campo nasce VAZIO de propósito: "1" seria um
+          // número plausível e errado, e ela confirmaria sem perceber
+          tamanhoEmbalagem:
+            item.precisaPeso || !item.tamanhoEmbalagem
+              ? ""
+              : String(item.tamanhoEmbalagem),
+          unidadeEmbalagem: item.unidade,
+          valorTotal: item.valorTotal ? String(item.valorTotal) : "",
+          validade,
+          validadeSugerida: Boolean(validade),
+        };
+      }),
     );
 
     if (resultado.fornecedor) {
@@ -697,6 +753,17 @@ function LinhaDeItem({
                   onChange={(e) => onAtualizar("validade", e.target.value)}
                   className="h-11 sm:max-w-xs"
                 />
+                {/*
+                  A data preenchida sozinha precisa se anunciar. Se ela achar
+                  que digitou, não confere; e o campo existe justamente pra ela
+                  não usar ingrediente estragado.
+                */}
+                {linha.validadeSugerida ? (
+                  <p className="text-muted-foreground text-xs">
+                    Sugerida pelo prazo das compras anteriores — confira na
+                    embalagem.
+                  </p>
+                ) : null}
               </div>
             ) : null}
 

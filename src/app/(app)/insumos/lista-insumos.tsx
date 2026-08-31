@@ -43,24 +43,35 @@ export type InsumoDaLista = {
   situacao: SituacaoEstoque;
 };
 
-type Filtro = "todos" | "acabando" | "sem-preco" | "arquivados";
+export type Filtro =
+  | "todos"
+  | "acabando"
+  | "sem-preco"
+  | "sem-alergeno"
+  | "arquivados";
 
 export function ListaInsumos({
   insumos,
   iaConfigurada,
+  filtroInicial = "todos",
 }: {
   insumos: InsumoDaLista[];
   iaConfigurada: boolean;
+  /** Vem da URL, pra o alerta do painel cair já na lista certa */
+  filtroInicial?: Filtro;
 }) {
   const [busca, setBusca] = useState("");
   const [categoria, setCategoria] = useState<CategoriaInsumo | null>(null);
-  const [filtro, setFiltro] = useState<Filtro>("todos");
+  const [filtro, setFiltro] = useState<Filtro>(filtroInicial);
   const [emEdicao, setEmEdicao] = useState<InsumoDaLista | null>(null);
   const [dialogoAberto, setDialogoAberto] = useState(false);
 
   const semPreco = insumos.filter((i) => i.ativo && i.custoMedio <= 0).length;
   const acabando = insumos.filter(
     (i) => i.ativo && i.situacao !== "ok",
+  ).length;
+  const semAlergeno = insumos.filter(
+    (i) => i.ativo && !i.alergenosRevisados,
   ).length;
 
   const visiveis = useMemo(() => {
@@ -70,6 +81,7 @@ export function ListaInsumos({
       if (filtro === "arquivados" ? insumo.ativo : !insumo.ativo) return false;
       if (filtro === "acabando" && insumo.situacao === "ok") return false;
       if (filtro === "sem-preco" && insumo.custoMedio > 0) return false;
+      if (filtro === "sem-alergeno" && insumo.alergenosRevisados) return false;
       if (categoria && insumo.categoria !== categoria) return false;
 
       if (!termo) return true;
@@ -151,6 +163,18 @@ export function ListaInsumos({
           contador={semPreco}
         >
           Sem preço
+        </Chip>
+        {/*
+          Rótulo não conferido não é detalhe de cadastro: é o campo que vira
+          aviso de alergia na etiqueta. Fica à mão, com o número na frente.
+        */}
+        <Chip
+          ativo={filtro === "sem-alergeno"}
+          onClick={() => setFiltro("sem-alergeno")}
+          contador={semAlergeno}
+          tom="alerta"
+        >
+          Rótulo não conferido
         </Chip>
         <Chip
           ativo={filtro === "arquivados"}
