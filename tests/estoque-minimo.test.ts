@@ -127,20 +127,49 @@ describe("arredondarParaCima", () => {
 });
 
 describe("intervaloEntreCompras", () => {
-  it("divide o período pelo número de intervalos, não de compras", () => {
+  it("mede o intervalo entre compras seguidas", () => {
     const datas = [
       new Date(2026, 5, 1),
       new Date(2026, 5, 21),
       new Date(2026, 6, 11),
     ];
 
-    // 40 dias no total, 2 intervalos
     expect(intervaloEntreCompras(datas)).toBe(20);
   });
 
   it("ordena antes de medir", () => {
     const datas = [new Date(2026, 6, 11), new Date(2026, 5, 1)];
     expect(intervaloEntreCompras(datas)).toBe(40);
+  });
+
+  /*
+    O caso que quebrava: ela comprou uma vez lá atrás e depois passou a comprar
+    toda semana. O período inteiro dividido pelo número de compras dava ~48
+    dias — que, com o teto de 45, faria o mínimo sair seis vezes maior e o
+    insumo viver marcado como "acabando".
+  */
+  it("uma compra antiga e isolada não estica o intervalo", () => {
+    const datas = [
+      new Date(2025, 8, 1), // há um ano
+      new Date(2026, 5, 1),
+      new Date(2026, 5, 8),
+      new Date(2026, 5, 15),
+      new Date(2026, 5, 22),
+      new Date(2026, 5, 29),
+    ];
+
+    expect(intervaloEntreCompras(datas)).toBe(7);
+  });
+
+  it("ignora compras no mesmo dia, mas aproveita o resto", () => {
+    const datas = [
+      new Date(2026, 5, 1),
+      new Date(2026, 5, 1), // nota dividida em duas
+      new Date(2026, 5, 11),
+      new Date(2026, 5, 21),
+    ];
+
+    expect(intervaloEntreCompras(datas)).toBe(10);
   });
 
   it("com uma compra só não existe intervalo", () => {

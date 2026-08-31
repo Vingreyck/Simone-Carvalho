@@ -68,7 +68,22 @@ export async function rodarManutencao(): Promise<void> {
     recalcularPercentualCustosFixos(),
   );
 
-  await tentar("preencher o estoque mínimo", () => preencherMinimosZerados());
+  /*
+    Guarda quantos mínimos foram preenchidos pra o painel poder explicar.
+
+    Sem isso, o dia em que a rotina preenche 12 mínimos é o dia em que o painel
+    salta de "tudo em ordem" pra "12 insumos acabando" — e ela não tem como
+    saber que foi o sistema que passou a olhar, não o estoque que despencou.
+  */
+  await tentar("preencher o estoque mínimo", async () => {
+    const quantos = await preencherMinimosZerados();
+    if (quantos === 0) return;
+
+    await prisma.manutencaoAutomatica.update({
+      where: { id: "default" },
+      data: { minimosPreenchidos: quantos, minimosPreenchidosEm: agora },
+    });
+  });
 
   revalidatePath("/");
   revalidatePath("/financeiro");

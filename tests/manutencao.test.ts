@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { HORAS_ENTRE_EXECUCOES, manutencaoVencida } from "@/lib/manutencao";
+import {
+  DIAS_DO_AVISO_DE_MINIMOS,
+  HORAS_ENTRE_EXECUCOES,
+  avisoDeMinimosAtivo,
+  manutencaoVencida,
+} from "@/lib/manutencao";
 
 describe("manutencaoVencida", () => {
   const agora = new Date(2026, 7, 31, 9, 0);
@@ -38,5 +43,35 @@ describe("manutencaoVencida", () => {
   */
   it("o intervalo cabe duas vezes num dia", () => {
     expect(HORAS_ENTRE_EXECUCOES).toBeLessThanOrEqual(12);
+  });
+});
+
+describe("avisoDeMinimosAtivo", () => {
+  const agora = new Date(2026, 7, 31, 9, 0);
+
+  function diasAtras(dias: number) {
+    return new Date(agora.getTime() - dias * 86_400_000);
+  }
+
+  it("nunca preencheu nada: não tem o que explicar", () => {
+    expect(avisoDeMinimosAtivo(null, agora)).toBe(false);
+    expect(avisoDeMinimosAtivo(undefined, agora)).toBe(false);
+  });
+
+  it("preencheu agora: explica", () => {
+    expect(avisoDeMinimosAtivo(agora, agora)).toBe(true);
+    expect(avisoDeMinimosAtivo(diasAtras(3), agora)).toBe(true);
+  });
+
+  /*
+    Some sozinho. Depois de uma semana convivendo com os avisos de estoque, a
+    explicação virou ruído — e ruído no painel é o que faz ela parar de ler os
+    avisos que importam.
+  */
+  it("passada a semana, para de explicar", () => {
+    expect(avisoDeMinimosAtivo(diasAtras(DIAS_DO_AVISO_DE_MINIMOS), agora)).toBe(
+      false,
+    );
+    expect(avisoDeMinimosAtivo(diasAtras(30), agora)).toBe(false);
   });
 });

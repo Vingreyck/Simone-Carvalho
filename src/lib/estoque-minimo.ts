@@ -1,5 +1,7 @@
 import { Decimal } from "decimal.js";
 
+import { mediana } from "./estatistica";
+
 /**
  * Quanto precisa sobrar de um insumo antes de avisar — calculado do consumo.
  *
@@ -89,21 +91,33 @@ export function arredondarParaCima(
 }
 
 /**
- * Intervalo médio entre compras, a partir das datas em que ela comprou.
+ * De quanto em quanto tempo ela costuma comprar aquele insumo.
  *
- * Precisa de pelo menos duas compras — com uma só não existe intervalo. As
- * datas vêm ordenadas ou não; a função ordena.
+ * Olha o intervalo entre compras SEGUIDAS e tira a mediana — não o período
+ * inteiro dividido pelo número de compras.
+ *
+ * ⚠️ A diferença não é acadêmica. Ela comprou fermento uma vez em setembro, e
+ * de março pra cá compra toda semana. O período inteiro dividido pelas compras
+ * dá ~50 dias por causa daquele buraco de seis meses; a mediana dos intervalos
+ * seguidos dá 7, que é a verdade. Com 50 (na prática 45, o teto), o mínimo
+ * sairia seis vezes maior e o insumo viveria marcado como "acabando" — o
+ * alerta vira ruído e ela para de olhar.
+ *
+ * Precisa de pelo menos duas compras: com uma só não existe intervalo.
  */
 export function intervaloEntreCompras(datas: Date[]): number | null {
   if (datas.length < 2) return null;
 
   const ordenadas = [...datas].sort((a, b) => a.getTime() - b.getTime());
-  const primeira = ordenadas[0]!;
-  const ultima = ordenadas[ordenadas.length - 1]!;
+  const intervalos: number[] = [];
 
-  const dias = (ultima.getTime() - primeira.getTime()) / 86_400_000;
-  if (dias <= 0) return null;
+  for (let i = 1; i < ordenadas.length; i++) {
+    const dias =
+      (ordenadas[i]!.getTime() - ordenadas[i - 1]!.getTime()) / 86_400_000;
 
-  // Duas compras = um intervalo, três compras = dois intervalos.
-  return dias / (ordenadas.length - 1);
+    // Duas compras no mesmo dia (nota dividida em duas) não são um intervalo
+    if (dias > 0) intervalos.push(dias);
+  }
+
+  return mediana(intervalos);
 }

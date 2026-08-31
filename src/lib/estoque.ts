@@ -1,5 +1,7 @@
 import { Decimal } from "decimal.js";
 
+import { mediana } from "./estatistica";
+
 /**
  * Regras de estoque.
  *
@@ -266,16 +268,10 @@ export function prazoDeValidade(
         (l.validade!.getTime() - l.dataEntrada.getTime()) / 86_400_000,
       ),
     )
-    .filter((dias) => dias > 0 && dias <= PRAZO_MAXIMO_DIAS)
-    .sort((a, b) => a - b);
+    .filter((dias) => dias > 0 && dias <= PRAZO_MAXIMO_DIAS);
 
-  if (prazos.length === 0) return null;
-
-  const meio = Math.floor(prazos.length / 2);
-
-  return prazos.length % 2 === 1
-    ? prazos[meio]!
-    : Math.round((prazos[meio - 1]! + prazos[meio]!) / 2);
+  const meio = mediana(prazos);
+  return meio === null ? null : Math.round(meio);
 }
 
 /**

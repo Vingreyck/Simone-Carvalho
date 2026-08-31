@@ -2,11 +2,13 @@ import Link from "next/link";
 import {
   ArrowRight,
   CalendarClock,
+  Calculator,
   ChefHat,
   ClipboardList,
   CookingPot,
   ShieldAlert,
   ShoppingCart,
+  Sparkles,
   Tags,
   TrendingDown,
 } from "lucide-react";
@@ -15,7 +17,7 @@ import { prisma } from "@/lib/db";
 import { carregarBaseDeCusto, custoDeProduto } from "@/server/custos";
 import { analisarPreco, calcularPrecoSugerido } from "@/lib/precificacao";
 import { situacaoEstoque, situacaoValidade } from "@/lib/estoque";
-import { manutencaoVencida } from "@/lib/manutencao";
+import { avisoDeMinimosAtivo, manutencaoVencida } from "@/lib/manutencao";
 import { formatarDataRelativa, formatarMoeda, formatarNumero } from "@/lib/format";
 import { formatarQuantidade } from "@/lib/unidades";
 import { cn } from "@/lib/utils";
@@ -90,7 +92,11 @@ export default async function PaginaPainel() {
     insumosSemConferirAlergenos(),
     prisma.manutencaoAutomatica.findUnique({
       where: { id: "default" },
-      select: { ultimaExecucao: true },
+      select: {
+        ultimaExecucao: true,
+        minimosPreenchidos: true,
+        minimosPreenchidosEm: true,
+      },
     }),
   ]);
 
@@ -99,6 +105,10 @@ export default async function PaginaPainel() {
   // Quem decide se a rotina automática roda é o servidor: o gatilho só é
   // montado quando ela está vencida, então o F5 do dia a dia não custa nada.
   const precisaManutencao = manutencaoVencida(marcaDaManutencao?.ultimaExecucao);
+
+  const explicarMinimos = avisoDeMinimosAtivo(
+    marcaDaManutencao?.minimosPreenchidosEm,
+  );
 
   const cfg = {
     valorHoraMaoDeObra: config?.valorHoraMaoDeObra?.toString() ?? "0",
@@ -184,6 +194,23 @@ export default async function PaginaPainel() {
 
   const vencidas = pendentes.filter((l) => l.dataVencimento < hoje);
 
+  /*
+    Os percentuais somam 100% ou mais e nenhum preço fecha a conta.
+
+    Isso ficou possível quando o % de custos fixos passou a ser recalculado
+    sozinho: o formulário de Ajustes se recusa a SALVAR uma soma dessas, mas a
+    rotina automática chega lá pelas costas se as contas fixas crescerem em
+    relação ao faturamento. Sem este aviso, o sintoma que ela veria é preço
+    sugerido "R$ 0,00" espalhado pelos produtos, sem explicação.
+  */
+  const somaDosPercentuais =
+    Number(cfg.percentualCustosFixos) +
+    Number(cfg.percentualImpostos) +
+    Number(cfg.percentualTaxaCartao) +
+    Number(cfg.margemLucroPadrao);
+
+  const contaNaoFecha = somaDosPercentuais >= 100;
+
   // ------------------------------------------------------------ números ---
   const entrou = doMes
     .filter((l) => l.tipo === "RECEITA")
@@ -193,6 +220,8 @@ export default async function PaginaPainel() {
     .reduce((t, l) => t + Number(l.valor), 0);
 
   const temAlerta =
+    contaNaoFecha ||
+    explicarMinimos ||
     acabando.length > 0 ||
     vencendo.length > 0 ||
     noPrejuizo.length > 0 ||
@@ -221,6 +250,21 @@ export default async function PaginaPainel() {
       {temAlerta ? (
         <section className="space-y-3">
           <h2 className="text-lg font-semibold">Precisa da sua atenção</h2>
+
+          {/*
+            Primeiro de todos: enquanto os percentuais não fecham, nenhum preço
+            sugerido sai — os outros avisos de preço ficam sem sentido.
+          */}
+          {contaNaoFecha ? (
+            <Alerta
+              tom="danger"
+              icone={Calculator}
+              titulo="Seus preços não estão sendo calculados"
+              texto={`Custos fixos, impostos, cartão e lucro somam ${somaDosPercentuais.toFixed(0)}% do preço de venda. Acima de 100% nenhum preço fecha a conta.`}
+              href="/ajustes"
+              acao="Ajustar"
+            />
+          ) : null}
 
           {plano.temAtrasado ? (
             <Alerta
@@ -306,6 +350,25 @@ export default async function PaginaPainel() {
                 .join(", ")}
               href="/estoque"
               acao="Ver estoque"
+            />
+          ) : null}
+
+          {/*
+            Explica de onde vieram os avisos de estoque.
+
+            No dia em que a rotina preenche os mínimos, o painel salta de "tudo
+            em ordem" pra vários "insumo acabando". Sem esta linha ela procuraria
+            um estoque que despencou — quando na verdade foi o sistema que
+            passou a olhar. Some sozinho depois de uma semana.
+          */}
+          {explicarMinimos ? (
+            <Alerta
+              tom="info"
+              icone={Sparkles}
+              titulo="Comecei a avisar quando um insumo estiver acabando"
+              texto={`Calculei o mínimo de ${marcaDaManutencao?.minimosPreenchidos ?? 0} ${(marcaDaManutencao?.minimosPreenchidos ?? 0) === 1 ? "insumo" : "insumos"} pelo seu consumo e pelo tempo entre suas compras. Se algum número não fizer sentido, é só mudar.`}
+              href="/insumos"
+              acao="Ver insumos"
             />
           ) : null}
 
@@ -414,6 +477,27 @@ function Numero({
   );
 }
 
+/**
+ * "info" não é alerta: é explicação.
+ *
+ * Usa o mesmo formato pra ficar na mesma lista, mas em tom neutro — quem lê
+ * precisa distinguir "resolva isto" de "o sistema mudou de comportamento".
+ */
+const TOM_DO_ALERTA = {
+  danger: {
+    card: "border-danger/30 bg-danger-soft/25 hover:border-danger/50",
+    selo: "bg-danger text-danger-foreground",
+  },
+  warning: {
+    card: "border-warning/30 bg-warning-soft/25 hover:border-warning/50",
+    selo: "bg-warning text-warning-foreground",
+  },
+  info: {
+    card: "border-info/30 bg-info-soft/25 hover:border-info/50",
+    selo: "bg-info text-info-foreground",
+  },
+} as const;
+
 function Alerta({
   tom,
   icone: Icone,
@@ -422,32 +506,20 @@ function Alerta({
   href,
   acao,
 }: {
-  tom: "danger" | "warning";
+  tom: keyof typeof TOM_DO_ALERTA;
   icone: React.ComponentType<{ className?: string }>;
   titulo: string;
   texto: string;
   href: string;
   acao: string;
 }) {
+  const estilo = TOM_DO_ALERTA[tom];
+
   return (
     <Link href={href} className="block">
-      <Card
-        className={cn(
-          "transition-colors",
-          tom === "danger"
-            ? "border-danger/30 bg-danger-soft/25 hover:border-danger/50"
-            : "border-warning/30 bg-warning-soft/25 hover:border-warning/50",
-        )}
-      >
+      <Card className={cn("transition-colors", estilo.card)}>
         <CardContent className="flex items-start gap-3 py-4">
-          <div
-            className={cn(
-              "mt-0.5 shrink-0 rounded-full p-2",
-              tom === "danger"
-                ? "bg-danger text-danger-foreground"
-                : "bg-warning text-warning-foreground",
-            )}
-          >
+          <div className={cn("mt-0.5 shrink-0 rounded-full p-2", estilo.selo)}>
             <Icone className="size-4" />
           </div>
 

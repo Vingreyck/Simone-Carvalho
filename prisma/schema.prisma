@@ -758,5 +758,14 @@ model ManutencaoAutomatica {
   id             String    @id @default("default")
   ultimaExecucao DateTime?
 
+  /// Quando o sistema preencheu estoque mínimo pela última vez, e quantos.
+  ///
+  /// Existe só pra o painel poder EXPLICAR. Sem isso, no dia em que a rotina
+  /// preenche 12 mínimos, o painel salta de "tudo em ordem" pra "12 insumos
+  /// acabando" sem nenhuma pista de onde aquilo veio — e alerta que aparece
+  /// sozinho e sem explicação é alerta que ela aprende a ignorar.
+  minimosPreenchidos   Int       @default(0)
+  minimosPreenchidosEm DateTime?
+
   @@map("manutencao_automatica")
 }

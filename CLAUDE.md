@@ -344,6 +344,14 @@ baixaria o preço, que é o erro que este sistema existe pra evitar).
   e explica; sem histórico, o campo volta. Um `input hidden` carrega o valor
   antigo, senão salvar o formulário zeraria a estimativa.
 
+⚠️ **Efeito colateral que exigiu aviso novo no painel.** O formulário de Ajustes
+se recusa a SALVAR percentuais que somem 100% ou mais (nenhum preço fecharia a
+conta). Com o recálculo automático, a rotina chega nesse estado **pelas costas**
+se as contas fixas crescerem em relação ao faturamento. O sintoma que ela veria
+seria preço sugerido "R$ 0,00" espalhado pelos produtos, sem explicação. Agora o
+painel avisa em primeiro lugar: *"Seus preços não estão sendo calculados"*.
+O número continua verdadeiro — o sistema avisa, não maquia.
+
 ### 2. Estoque mínimo calculado do consumo
 
 `situacaoEstoque` devolve "ok" quando o mínimo é 0, e o seed **não define mínimo
@@ -364,6 +372,24 @@ ainda marca crítico na metade disso.
 - ⚠️ Só preenche quem está em **0**. Número que ela escolheu nunca é tocado — e
   o `where estoqueMinimo: 0` está repetido no `updateMany` porque ela pode ter
   digitado entre o cálculo e a gravação.
+
+⚠️ **O intervalo é a MEDIANA dos intervalos seguidos**, não o período dividido
+pelo número de compras. Achado revendo o código depois do primeiro deploy: ela
+comprou fermento uma vez em setembro e de março pra cá compra toda semana. Pela
+média, aquele buraco de seis meses dava ~50 dias (na prática 45, o teto) e o
+mínimo sairia seis vezes maior — o insumo viveria marcado como "acabando" e o
+alerta viraria ruído. Pela mediana dá 7, que é a verdade.
+
+A mediana aparece aqui e em `prazoDeValidade` pelo mesmo motivo (os dados dela
+têm ponto fora da curva com significado), então mora em `src/lib/estatistica.ts`
+— se um dia virar média num lugar, que seja de propósito nos dois.
+
+⚠️ **O painel explica quando começa a vigiar.** No dia em que a rotina preenche
+os mínimos, o painel saltaria de "tudo em ordem" pra vários "insumo acabando", e
+ela procuraria um estoque que despencou — quando foi o sistema que passou a
+olhar. `minimosPreenchidosEm` sustenta um cartão azul (tom **info**: explicação,
+não alarme) que some sozinho em 7 dias, sem botão de dispensar nem estado de
+"já li".
 
 ### 3. Contas fixas do mês, sem botão
 
