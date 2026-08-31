@@ -48,7 +48,7 @@ export type InsumoDoFormulario = {
 type Linha = {
   chave: string;
   insumoId: string | null;
-  /** Texto original do cupom — vira apelido aprendido quando ela confirma */
+  /** Texto original da nota — vira apelido aprendido quando ela confirma */
   descricaoOriginal?: string;
   /** Palpite de casamento incerto: destaca a linha pra ela olhar */
   incerto?: boolean;
@@ -57,6 +57,8 @@ type Linha = {
    * de verdade quando ela confirma a compra.
    */
   novoInsumo?: { nome: string; unidadeBase: "G" | "ML" | "UN" } | null;
+  /** A nota não trouxe o peso e o insumo é medido em peso — ela precisa digitar */
+  precisaPeso?: boolean;
   quantidadeEmbalagens: string;
   tamanhoEmbalagem: string;
   unidadeEmbalagem: string;
@@ -170,10 +172,14 @@ export function FormularioCompra({
         descricaoOriginal: item.descricao,
         incerto: Boolean(item.insumoId) && !item.confiante,
         novoInsumo: item.novoInsumo ?? null,
+        precisaPeso: item.precisaPeso ?? false,
         quantidadeEmbalagens: String(item.quantidade || 1),
-        tamanhoEmbalagem: item.tamanhoEmbalagem
-          ? String(item.tamanhoEmbalagem)
-          : "",
+        // Sem peso na nota o campo nasce VAZIO de propósito: "1" seria um
+        // número plausível e errado, e ela confirmaria sem perceber
+        tamanhoEmbalagem:
+          item.precisaPeso || !item.tamanhoEmbalagem
+            ? ""
+            : String(item.tamanhoEmbalagem),
         unidadeEmbalagem: item.unidade,
         valorTotal: item.valorTotal ? String(item.valorTotal) : "",
         validade: "",
@@ -543,13 +549,18 @@ function LinhaDeItem({
     : [];
 
   return (
-    <Card className={cn(linha.incerto && "border-warning/50 bg-warning-soft/20")}>
+    <Card
+      className={cn(
+        linha.incerto && "border-warning/50 bg-warning-soft/20",
+        linha.precisaPeso && "border-info/50 bg-info-soft/20",
+      )}
+    >
       <CardContent className="space-y-3 py-4">
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1 space-y-2">
             <Label className="text-xs">Item {indice + 1}</Label>
 
-            {/* O texto do cupom fica visível: é contra ele que ela confere */}
+            {/* O texto da nota fica visível: é contra ele que ela confere */}
             {linha.descricaoOriginal ? (
               <p
                 className={cn(
@@ -560,6 +571,12 @@ function LinhaDeItem({
               >
                 {linha.incerto ? "confira: " : ""}
                 {linha.descricaoOriginal}
+              </p>
+            ) : null}
+
+            {linha.precisaPeso ? (
+              <p className="text-info text-xs font-medium">
+                A nota não disse o peso. Quanto vem em cada pacote?
               </p>
             ) : null}
             {!linha.insumoId && linha.novoInsumo ? (

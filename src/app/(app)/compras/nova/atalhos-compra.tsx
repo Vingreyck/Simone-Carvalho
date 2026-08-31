@@ -26,7 +26,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-import { lerCupom, type ItemLido } from "./acoes-ia";
+import { lerNota, type ItemLido } from "./acoes-ia";
 import { carregarUltimaCompra, interpretarLista } from "./acoes-atalhos";
 
 export type ResultadoDoAtalho = {
@@ -64,10 +64,10 @@ export function AtalhosCompra({
       const dados = new FormData();
       dados.set("foto", arquivo);
 
-      const resultado = await lerCupom(dados);
+      const resultado = await lerNota(dados);
 
       if (!resultado.ok || !resultado.itens) {
-        toast.error(resultado.erro ?? "Não consegui ler o cupom.");
+        toast.error(resultado.erro ?? "Não consegui ler a nota.");
         return;
       }
 
@@ -76,32 +76,64 @@ export function AtalhosCompra({
         return;
       }
 
+      /*
+        Nota de supermercado traz a compra da casa junto: fósforo, esponja,
+        macarrão. Entram só os ingredientes — o resto viraria insumo de
+        confeitaria no cadastro dela, e ela teria que apagar um por um.
+      */
+      const ingredientes = resultado.itens.filter(
+        (i) => i.ehIngrediente !== false,
+      );
+      const deCasa = resultado.itens.length - ingredientes.length;
+
+      if (ingredientes.length === 0) {
+        toast.error(
+          "Nessa nota só achei compra de casa, nenhum ingrediente de doceria.",
+        );
+        return;
+      }
+
       onPreencher({
-        itens: resultado.itens,
+        itens: ingredientes,
         fornecedor: resultado.fornecedor,
         data: resultado.data,
         notaFiscal: resultado.notaFiscal,
       });
 
-      const semCasar = resultado.itens.filter((i) => !i.insumoId).length;
-      const duvidosos = resultado.itens.filter(
+      const semCasar = ingredientes.filter((i) => !i.insumoId).length;
+      const duvidosos = ingredientes.filter(
         (i) => i.insumoId && !i.confiante,
       ).length;
+      const semPeso = ingredientes.filter((i) => i.precisaPeso).length;
 
       toast.success(
-        `Li ${resultado.itens.length} ${resultado.itens.length === 1 ? "item" : "itens"}. Confira antes de confirmar.`,
+        `Li ${ingredientes.length} ${ingredientes.length === 1 ? "ingrediente" : "ingredientes"}. Confira antes de confirmar.`,
       );
 
-      // O total do cupom é a melhor conferência que existe: se bate com a soma
+      // O total da nota é a melhor conferência que existe: se bate com a soma
       // dos itens, provavelmente nenhum número foi lido errado.
+      // Soma TODOS os itens, inclusive os de casa que não entraram: é contra o
+      // total impresso que se descobre se algum número foi lido errado.
       const soma = resultado.itens.reduce((t, i) => t + i.valorTotal, 0);
-      const total = resultado.valorTotalDoCupom;
+      const total = resultado.valorTotalDaNota;
 
       const partes: string[] = [];
 
+      if (semPeso > 0) {
+        partes.push(
+          `${semPeso} ${semPeso === 1 ? "item veio" : "itens vieram"} sem o peso na nota — escreva quanto vem em cada pacote.`,
+        );
+      }
+
+      if (deCasa > 0) {
+        partes.push(
+          `Deixei de fora ${deCasa} ${deCasa === 1 ? "item que não é" : "itens que não são"} de doceria (compra de casa).`,
+        );
+      }
+
       if (total && Math.abs(soma - total) > 0.05) {
         partes.push(
-          `A soma dos itens deu ${formatarMoeda(soma)}, mas o cupom diz ${formatarMoeda(total)}. Confira as quantidades.`,
+          `A soma dos itens deu ${formatarMoeda(soma)}, mas a nota diz ${formatarMoeda(total)}. Confira as quantidades.`,
         );
       }
       if (semCasar > 0) {
@@ -172,7 +204,7 @@ export function AtalhosCompra({
               <BotaoFoto
                 onFoto={aoTirarFoto}
                 processando={lendoFoto}
-                rotulo="Ler cupom por foto"
+                rotulo="Ler nota por foto"
                 className="bg-card"
               />
             ) : null}

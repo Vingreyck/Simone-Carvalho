@@ -6,7 +6,7 @@ import type { z } from "zod";
  * A camada de IA.
  *
  * Só é acionada quando alguém realmente usa um atalho — assim o sistema inteiro
- * continua funcionando sem chave nenhuma. Foto do cupom, ficha por foto e
+ * continua funcionando sem chave nenhuma. Foto da nota, ficha por foto e
  * leitura do WhatsApp são atalhos: se faltarem, ela digita como sempre digitou.
  *
  * Existem dois provedores atrás da mesma porta. Quem escolhe é a variável de
@@ -60,7 +60,7 @@ export type PedidoIa<T> = {
   /**
    * Quanto o modelo deve "pensar" antes de responder.
    *
-   * Cupom impresso é leitura direta. Receita em caderno é letra de mão, com
+   * Nota impresso é leitura direta. Receita em caderno é letra de mão, com
    * fração e abreviação — ali vale pagar mais atenção, porque número errado
    * aqui vira preço errado lá na frente.
    */

@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { exigirSessao } from "@/lib/auth";
-import { lerCupomFiscal } from "@/lib/ia/extracoes";
+import { lerNotaFiscal } from "@/lib/ia/extracoes";
 import {
   TAMANHO_MAXIMO_IMAGEM,
   ehTipoDeImagemValido,
@@ -14,7 +14,7 @@ import { normalizarUnidade } from "@/lib/unidades";
 import type { UnidadeBase } from "@/generated/prisma/enums";
 
 export type ItemLido = {
-  /** Como veio escrito no cupom — fica visível pra ela conferir */
+  /** Como veio escrito na nota — fica visível pra ela conferir */
   descricao: string;
   insumoId: string | null;
   insumoNome: string | null;
@@ -32,6 +32,16 @@ export type ItemLido = {
    * não deixa lixo no cadastro.
    */
   novoInsumo?: { nome: string; unidadeBase: UnidadeBase } | null;
+  /**
+   * A nota não disse o peso e o insumo é medido em peso.
+   *
+   * Acontece o tempo todo em nota de supermercado: a linha diz "2 UN" e o peso
+   * só está na embalagem. Sem isso a compra falha na hora de converter, com uma
+   * mensagem que não ajuda. Assim ela vê exatamente qual linha preencher.
+   */
+  precisaPeso?: boolean;
+  /** false = compra da casa (fósforo, esponja), não insumo de doceria */
+  ehIngrediente?: boolean;
 };
 
 /**
@@ -49,25 +59,25 @@ function unidadeBaseDe(unidade: string): UnidadeBase {
   return "UN";
 }
 
-export type CupomLido = {
+export type NotaLida = {
   ok: boolean;
   erro?: string;
   fornecedor?: string | null;
   data?: string | null;
   notaFiscal?: string | null;
   itens?: ItemLido[];
-  /** Total impresso no cupom — pra ela conferir contra a soma */
-  valorTotalDoCupom?: number | null;
+  /** Total impresso na nota — pra ela conferir contra a soma */
+  valorTotalDaNota?: number | null;
 };
 
 /**
- * Lê a foto do cupom e devolve uma PROPOSTA de compra.
+ * Lê a foto da nota e devolve uma PROPOSTA de compra.
  *
  * Não grava nada: o resultado abre no formulário normal, preenchido, e ela
  * confere antes de confirmar. Um "1,5 kg" lido como "15 kg" corromperia o custo
  * médio do insumo e, por tabela, o preço de todo produto que o usa.
  */
-export async function lerCupom(formData: FormData): Promise<CupomLido> {
+export async function lerNota(formData: FormData): Promise<NotaLida> {
   await exigirSessao();
 
   const arquivo = formData.get("foto");
@@ -92,20 +102,34 @@ export async function lerCupom(formData: FormData): Promise<CupomLido> {
 
   try {
     const base64 = Buffer.from(await arquivo.arrayBuffer()).toString("base64");
-    const cupom = await lerCupomFiscal(base64, arquivo.type);
+    const nota = await lerNotaFiscal(base64, arquivo.type);
 
     const [insumos, apelidos] = await Promise.all([
       prisma.insumo.findMany({
         where: { ativo: true },
-        select: { id: true, nome: true },
+        select: { id: true, nome: true, unidadeBase: true },
       }),
       prisma.apelidoInsumo.findMany({ select: { texto: true, insumoId: true } }),
     ]);
 
     const mapaApelidos = new Map(apelidos.map((a) => [a.texto, a.insumoId]));
 
-    const itens: ItemLido[] = cupom.itens.map((item) => {
+    const porId = new Map(insumos.map((i) => [i.id, i]));
+
+    const itens: ItemLido[] = nota.itens.map((item) => {
       const casado = casarInsumo(item.descricao, insumos, mapaApelidos);
+      const insumo = casado ? porId.get(casado.id) : null;
+
+      /*
+        A nota disse "2 UN" mas o insumo é medido em grama ou ml. O peso está
+        só na embalagem, e a conversão não tem como adivinhar — nem deve: um
+        peso chutado vira custo por grama errado, que é o erro mais caro que
+        este sistema pode cometer.
+      */
+      const unidadeDaNota = unidadeBaseDe(item.unidade);
+      const precisaPeso = Boolean(
+        insumo && insumo.unidadeBase !== "UN" && unidadeDaNota === "UN",
+      );
 
       return {
         descricao: item.descricao,
@@ -116,6 +140,16 @@ export async function lerCupom(formData: FormData): Promise<CupomLido> {
         tamanhoEmbalagem: item.tamanhoEmbalagem,
         unidade: item.unidade,
         valorTotal: item.valorTotal,
+        precisaPeso,
+        /*
+          Casou com um insumo que ELA cadastrou? Então é ingrediente, ponto —
+          o cadastro dela vale mais que o palpite da IA.
+
+          Isso não é teoria: numa nota de teste a IA classificou "FARINHA FEIRA
+          NOVA" como compra de casa. A farinha sumiria da compra em silêncio,
+          que é o pior desfecho possível pra esse atalho.
+        */
+        ehIngrediente: casado ? true : item.ehIngrediente,
         // Não casou com nada: propõe criar, com o nome limpo que a IA sugeriu
         novoInsumo: casado
           ? null
@@ -128,11 +162,11 @@ export async function lerCupom(formData: FormData): Promise<CupomLido> {
 
     return {
       ok: true,
-      fornecedor: cupom.fornecedor,
-      data: cupom.data,
-      notaFiscal: cupom.notaFiscal,
+      fornecedor: nota.fornecedor,
+      data: nota.data,
+      notaFiscal: nota.notaFiscal,
       itens,
-      valorTotalDoCupom: cupom.valorTotal,
+      valorTotalDaNota: nota.valorTotal,
     };
   } catch (erro) {
     return { ok: false, erro: traduzirErro(erro) };
@@ -142,7 +176,7 @@ export async function lerCupom(formData: FormData): Promise<CupomLido> {
 /**
  * Guarda como aquele fornecedor escreve o nome de um insumo.
  *
- * Chamado quando ela confirma a compra: cada linha que veio do cupom ensina o
+ * Chamado quando ela confirma a compra: cada linha que veio da nota ensina o
  * sistema. Da próxima vez, aquele texto casa direto, sem depender de semelhança.
  */
 export async function aprenderApelidos(

@@ -42,8 +42,8 @@ describe("converterParaBase — unidades padrão", () => {
     expect(converterParaBase(2, "dúzia", "UN").toNumber()).toBe(24);
   });
 
-  it("entende as abreviações que vêm no cupom fiscal", () => {
-    // Cupom escreve "OVOS BRANCOS DZ". Sem estes apelidos a linha chega na tela
+  it("entende as abreviações que vêm na nota fiscal", () => {
+    // Nota escreve "OVOS BRANCOS DZ". Sem estes apelidos a linha chega na tela
     // com "não sei converter" e ela tem que arrumar na mão — logo no atalho que
     // existe justamente pra ela não digitar.
     expect(converterParaBase(1, "DZ", "UN").toNumber()).toBe(12);

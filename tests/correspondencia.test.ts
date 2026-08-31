@@ -20,7 +20,7 @@ const insumos = [
   { id: "fermento", nome: "Fermento em pó químico" },
 ];
 
-describe("casarInsumo — abreviações de cupom", () => {
+describe("casarInsumo — abreviações de nota", () => {
   it("acha açúcar em 'ACUC REFINADO UNIAO 1KG'", () => {
     const r = casarInsumo("ACUC REFINADO UNIAO 1KG", insumos);
     expect(r?.id).toBe("acucar");
@@ -113,7 +113,7 @@ describe("confiança", () => {
   });
 
   it("marca e peso no meio não derrubam a confiança", () => {
-    // O cupom traz lixo ("uniao", "1kg"), mas o nome do insumo foi todo reconhecido
+    // O nota traz lixo ("uniao", "1kg"), mas o nome do insumo foi todo reconhecido
     const r = casarInsumo("ACUCAR REFINADO UNIAO PACOTE 1KG", insumos);
     expect(r!.confianca).toBeGreaterThanOrEqual(CONFIANCA_ALTA);
   });

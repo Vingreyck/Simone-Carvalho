@@ -36,7 +36,7 @@ const CONVERSOES_PADRAO: Record<string, ConversaoPadrao> = {
   und: { base: "UN", fator: new Decimal(1) },
   unid: { base: "UN", fator: new Decimal(1) },
   duzia: { base: "UN", fator: new Decimal(12) },
-  // Cupom fiscal escreve tudo abreviado ("OVOS BRANCOS DZ"). Sem este apelido a
+  // Nota fiscal escreve tudo abreviado ("OVOS BRANCOS DZ"). Sem este apelido a
   // linha chega na tela com "não sei converter" e ela tem que corrigir na mão.
   dz: { base: "UN", fator: new Decimal(12) },
 };

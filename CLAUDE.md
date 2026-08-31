@@ -99,11 +99,11 @@ de provedor **não mexe em prompt nem em validação**.
 Se as duas estiverem preenchidas, **vale o Gemini** — não gastar é o padrão.
 `GEMINI_MODELO` troca o modelo sem deploy.
 
-**Por que 3.5 e não 3.7:** medido no mesmo cupom, leitura idêntica — 3.5 em 11 s,
+**Por que 3.5 e não 3.7:** medido no mesmo nota, leitura idêntica — 3.5 em 11 s,
 3.7 em 48 s. Resultado empatado, ganha o rápido. (`thinking_level: "minimal"`
 existe só no 3.5; o 3.7 e o 2.5 aceitam apenas high/low/medium.)
 
-Medições reais das três leituras (agosto/2026): cupom 9,1 s · conversa 10,0 s ·
+Medições reais das três leituras (agosto/2026): nota 9,1 s · conversa 10,0 s ·
 receita 10,5 s.
 
 ⚠️ **Pegadinha do Gemini:** ele não entende `anyOf`, e o Zod gera exatamente isso
@@ -116,19 +116,34 @@ não suportada.
 
 ⚠️ **Privacidade da camada gratuita:** o Google usa o conteúdo enviado pra
 melhorar os produtos dele e revisores humanos podem ler ([docs de preços](https://ai.google.dev/gemini-api/docs/pricing)).
-Cupom e receita é um risco; **conversa do WhatsApp leva nome e telefone de
+Nota e receita é um risco; **conversa do WhatsApp leva nome e telefone de
 cliente** — dado de terceiro, não dela. Se isso pesar, é essa leitura que
 justifica pôr a chave paga.
 
 Quatro leituras em `src/lib/ia/extracoes.ts`:
 
-1. **Foto do cupom → compra** — e o insumo que ela ainda não tem é **criado
+1. **Foto da nota → compra** — e o insumo que ela ainda não tem é **criado
    junto**, com o `nomeLimpo` que a IA sugere ("ACUC REFINADO UNIAO 1KG" →
    "Açúcar refinado"). Antes disso a foto travava: item desconhecido obrigava
    ela a parar e cadastrar na mão.
    O insumo só nasce quando ela **confirma a compra**, não na leitura — foto
    descartada não deixa lixo no cadastro. Nasce com `alergenosRevisados: false`:
    ninguém olhou o rótulo ainda.
+
+   ⚠️ **Duas coisas que só apareceram testando uma NFC-e de supermercado real:**
+
+   - **A nota costuma não trazer o peso.** A linha diz "2 UN X 1,75" e o peso só
+     está na embalagem. Como o insumo é medido em grama, a conversão falhava com
+     uma mensagem inútil. Agora vem `precisaPeso`, o campo nasce **vazio** (um
+     "1" seria plausível e errado) e a linha pede o peso em azul.
+   - **Nota de mercado mistura a compra da casa.** Fósforo, esponja e macarrão
+     vinham na mesma nota e virariam insumo de confeitaria. `ehIngrediente` na
+     leitura separa, e só os ingredientes entram no formulário.
+
+   ⚠️ **Mas `ehIngrediente` da IA não manda sozinho:** num teste ela marcou
+   "FARINHA FEIRA NOVA" como compra de casa. Se o item **casou com um insumo do
+   cadastro dela**, é ingrediente e ponto — o cadastro dela vale mais que o
+   palpite. Sem essa trava a farinha sumiria da compra em silêncio.
 2. **Foto do caderno / texto solto → ficha técnica**
 3. **Conversa do WhatsApp → pedido**
 4. **Foto do rótulo → alergênicos** (`lerRotulo`)
@@ -157,7 +172,7 @@ por quê. Sem a chave, os botões de IA somem e o resto funciona igual.
 "ACUC REFINADO UNIAO 1KG" → "Açúcar refinado". **Não usa IA** — é comparação de
 texto, determinística e instantânea. Dois detalhes que custaram iteração:
 
-- **Prefixo vale 0,9 fixo**, sem penalizar tamanho: abreviação de cupom é sempre
+- **Prefixo vale 0,9 fixo**, sem penalizar tamanho: abreviação de nota é sempre
   bem mais curta que a palavra ("cond" de condensado).
 - **Peso por raridade + piso 1 no denominador.** "leite" aparece em 3 insumos e
   quase não identifica; "condensado" aparece em 1 e praticamente decide. O piso

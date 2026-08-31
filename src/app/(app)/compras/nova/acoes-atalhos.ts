@@ -48,7 +48,7 @@ export async function carregarUltimaCompra(): Promise<AtalhoCarregado> {
       tamanhoEmbalagem: Number(i.tamanhoEmbalagem),
       unidade: i.unidadeEmbalagem,
       // Preço em branco de propósito: repetir o valor antigo faria o custo
-      // médio parecer certo estando errado. Ela preenche olhando o cupom.
+      // médio parecer certo estando errado. Ela preenche olhando a nota.
       valorTotal: 0,
     }));
 
@@ -66,7 +66,7 @@ export async function carregarUltimaCompra(): Promise<AtalhoCarregado> {
  * Interpreta uma lista digitada em texto corrido.
  *
  * Formato: um item por linha, `nome quantidade valor` — por exemplo
- * `farinha 5kg 28`. É pra quando ela prefere digitar de uma vez, sem cupom
+ * `farinha 5kg 28`. É pra quando ela prefere digitar de uma vez, sem nota
  * na mão e sem passar por seletor nenhum.
  *
  * Sem IA: é uma expressão regular. Determinístico, instantâneo e de graça.

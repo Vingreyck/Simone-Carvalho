@@ -26,7 +26,7 @@ const esquemaItem = z.object({
   /** Vazio quando o insumo ainda não existe e vai ser criado por `novoInsumo` */
   insumoId: z.string().default(""),
   /**
-   * Insumo que a foto do cupom encontrou e ela ainda não tinha cadastrado.
+   * Insumo que a foto da nota encontrou e ela ainda não tinha cadastrado.
    *
    * Criar aqui, junto com a compra, em vez de na hora da leitura: se ela
    * desistir da compra, não sobra insumo fantasma no cadastro. E pra ela o
@@ -63,9 +63,9 @@ const esquemaCompra = z.object({
 type ItemDaCompra = z.infer<typeof esquemaItem>;
 
 /**
- * Cria os insumos que a foto do cupom encontrou e ela ainda não tinha.
+ * Cria os insumos que a foto da nota encontrou e ela ainda não tinha.
  *
- * `upsert` pelo nome porque duas linhas do mesmo cupom podem propor o mesmo
+ * `upsert` pelo nome porque duas linhas do mesma nota podem propor o mesmo
  * insumo, e porque ela pode já ter um com aquele nome que o casamento não
  * achou — melhor reusar que duplicar.
  *

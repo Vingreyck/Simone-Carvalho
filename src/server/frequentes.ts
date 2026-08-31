@@ -28,7 +28,7 @@ export async function insumosMaisUsados(limite = 8): Promise<string[]> {
   }
 
   // Uso em receita pesa mais: indica o que ela realmente produz, não só o que
-  // apareceu uma vez num cupom grande.
+  // apareceu uma vez num nota grande.
   for (const linha of emReceitas) {
     if (!linha.insumoId) continue;
     pontos.set(

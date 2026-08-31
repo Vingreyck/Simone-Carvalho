@@ -9,7 +9,7 @@ import { IaIndisponivelError, type PedidoIa } from "./cliente";
  * Leitura pela Claude (Anthropic).
  *
  * Não é o padrão porque é paga, mas fica de pé: se a leitura do Gemini errar
- * demais em cupom amassado ou letra de mão, trocar de provedor é apagar uma
+ * demais em nota amassado ou letra de mão, trocar de provedor é apagar uma
  * variável de ambiente e pôr a outra — nenhuma linha de instrução ou de
  * validação muda de lugar.
  *

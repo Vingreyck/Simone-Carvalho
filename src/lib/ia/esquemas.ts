@@ -9,14 +9,14 @@ import { z } from "zod";
  * de conferência.
  */
 
-export const ItemDoCupomSchema = z.object({
-  /** Como está escrito no cupom, sem "traduzir" — é o que ela vai conferir */
+export const ItemDaNotaSchema = z.object({
+  /** Como está escrito na nota, sem "traduzir" — é o que ela vai conferir */
   descricao: z.string(),
   /**
    * O mesmo produto com nome de gente ("Açúcar refinado").
    *
    * Só é usado quando o item não existe no cadastro dela e o sistema vai criar
-   * o insumo — o nome do cupom ("ACUC REFINADO UNIAO 1KG") viraria um item feio
+   * o insumo — o nome da nota ("ACUC REFINADO UNIAO 1KG") viraria um item feio
    * e permanente na lista.
    */
   nomeLimpo: z.string(),
@@ -28,22 +28,30 @@ export const ItemDoCupomSchema = z.object({
   unidade: z.string(),
   /** Total pago naquela linha, já multiplicado pela quantidade */
   valorTotal: z.number(),
+  /**
+   * Se serve pra fazer doce.
+   *
+   * Nota de supermercado mistura a compra da casa com a da doceria: fósforo,
+   * esponja e detergente vêm na mesma nota que a farinha. Sem esta marca, o
+   * sistema cadastraria "Esponja de limpeza" como insumo de confeitaria.
+   */
+  ehIngrediente: z.boolean(),
 });
 
-export const CupomSchema = z.object({
-  /** Nome do mercado/fornecedor, como aparece no cupom */
+export const NotaSchema = z.object({
+  /** Nome do mercado/fornecedor, como aparece na nota */
   fornecedor: z.string().nullable(),
   /** AAAA-MM-DD */
   data: z.string().nullable(),
   /** Número da nota, se aparecer */
   notaFiscal: z.string().nullable(),
-  itens: z.array(ItemDoCupomSchema),
-  /** Total do cupom, pra conferir contra a soma dos itens */
+  itens: z.array(ItemDaNotaSchema),
+  /** Total da nota, pra conferir contra a soma dos itens */
   valorTotal: z.number().nullable(),
 });
 
-export type ItemDoCupom = z.infer<typeof ItemDoCupomSchema>;
-export type Cupom = z.infer<typeof CupomSchema>;
+export type ItemDaNota = z.infer<typeof ItemDaNotaSchema>;
+export type Nota = z.infer<typeof NotaSchema>;
 
 export const IngredienteSchema = z.object({
   /** Nome do ingrediente como ela escreveu */

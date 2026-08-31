@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { paraEsquemaGemini } from "@/lib/ia/esquema-gemini";
 import {
-  CupomSchema,
+  NotaSchema,
   PedidoExtraidoSchema,
   ReceitaExtraidaSchema,
 } from "@/lib/ia/esquemas";
@@ -75,7 +75,7 @@ describe("tradução de schema pro Gemini", () => {
     expect(esquema).not.toHaveProperty("additionalProperties");
   });
 
-  it("desce em array de objeto — é onde ficam os itens do cupom", () => {
+  it("desce em array de objeto — é onde ficam os itens da nota", () => {
     const esquema = paraEsquemaGemini(
       z.object({
         itens: z.array(z.object({ preco: z.number().nullable() })),
@@ -99,7 +99,7 @@ describe("tradução de schema pro Gemini", () => {
 
   it("não deixa passar palavra-chave que o Gemini não conhece", () => {
     for (const esquema of [
-      CupomSchema,
+      NotaSchema,
       ReceitaExtraidaSchema,
       PedidoExtraidoSchema,
     ]) {
@@ -112,8 +112,8 @@ describe("tradução de schema pro Gemini", () => {
   });
 
   it("mantém os campos dos três esquemas de verdade", () => {
-    const cupom = paraEsquemaGemini(CupomSchema);
-    const propriedades = Object.keys(cupom.properties as object);
+    const nota = paraEsquemaGemini(NotaSchema);
+    const propriedades = Object.keys(nota.properties as object);
 
     expect(propriedades).toEqual([
       "fornecedor",

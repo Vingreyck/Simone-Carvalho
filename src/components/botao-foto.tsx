@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
  *
  * Reduz a imagem no próprio celular antes de enviar. Foto de celular moderno
  * passa de 5 MB e demoraria pra subir no 4G da loja — e resolução maior que
- * ~1600px não melhora a leitura do cupom, só custa tempo e token.
+ * ~1600px não melhora a leitura da nota, só custa tempo e token.
  */
 
 const LADO_MAXIMO = 1600;

@@ -2,11 +2,11 @@ import "server-only";
 
 import { extrair, type ConteudoIa, type TipoDeImagem } from "./cliente";
 import {
-  CupomSchema,
+  NotaSchema,
   PedidoExtraidoSchema,
   ReceitaExtraidaSchema,
   RotuloSchema,
-  type Cupom,
+  type Nota,
   type PedidoExtraido,
   type ReceitaExtraida,
   type Rotulo,
@@ -30,18 +30,18 @@ const NA_DUVIDA_DEIXE_VAZIO =
   "NUNCA invente ou estime um valor — quem confere é uma pessoa, e um número " +
   "chutado passa despercebido mais fácil que um campo vazio.";
 
-export async function lerCupomFiscal(
+export async function lerNotaFiscal(
   imagemBase64: string,
   tipoDeImagem: TipoDeImagem,
-): Promise<Cupom> {
+): Promise<Nota> {
   return extrair({
-    esquema: CupomSchema,
-    aoFalhar: "Não consegui entender o cupom.",
+    esquema: NotaSchema,
+    aoFalhar: "Não consegui entender a nota.",
     sistema:
-      "Você lê cupons fiscais e notas de compra de uma doceria brasileira e " +
+      "Você lê notas fiscais de compra de uma doceria brasileira e " +
       "extrai os itens comprados.\n\n" +
       "Regras:\n" +
-      "- Transcreva a descrição EXATAMENTE como está no cupom, com as " +
+      "- Transcreva a descrição EXATAMENTE como está na nota, com as " +
       "abreviações do mercado (ex.: 'ACUC REFINADO UNIAO 1KG'). Não traduza " +
       "nem normalize — quem confere precisa reconhecer a linha.\n" +
       "- Em nomeLimpo, escreva o mesmo produto como uma confeiteira o chamaria: " +
@@ -53,17 +53,23 @@ export async function lerCupomFiscal(
       "- Quando a linha não indicar tamanho de embalagem, use tamanhoEmbalagem 1 " +
       "e a unidade que fizer sentido ('un' para itens contados).\n" +
       "- A unidade DEVE ser uma destas, sem abreviar: kg, g, l, ml, un, dúzia. " +
-      "Traduza a abreviação do cupom para uma delas — 'DZ' vira 'dúzia', 'UND' " +
+      "Traduza a abreviação da nota para uma delas — 'DZ' vira 'dúzia', 'UND' " +
       "e 'PCT' viram 'un'. Qualquer outra coisa o sistema não sabe converter.\n" +
       "- valorTotal é o total daquela linha (já multiplicado pela quantidade), " +
       "não o preço unitário.\n" +
       "- Ignore linhas que não são produto: desconto, troco, subtotal, tributos, " +
       "formas de pagamento.\n" +
+      "- ehIngrediente: true só se serve pra FAZER DOCE (farinha, açúcar, " +
+      "chocolate, ovo, leite, fermento, embalagem de bolo, forminha). " +
+      "false pra compra de casa e limpeza (fósforo, esponja, detergente, " +
+      "macarrão, café, arroz, papel higiênico). Na dúvida entre os dois, use " +
+      "false: é mais fácil ela marcar um item esquecido do que apagar um " +
+      "insumo errado que já entrou no estoque.\n" +
       "- Data no formato AAAA-MM-DD.\n\n" +
       NA_DUVIDA_DEIXE_VAZIO,
     conteudo: [
       { tipo: "imagem", base64: imagemBase64, tipoDeImagem },
-      { tipo: "texto", texto: "Extraia os itens deste cupom." },
+      { tipo: "texto", texto: "Extraia os itens deste nota." },
     ],
   });
 }

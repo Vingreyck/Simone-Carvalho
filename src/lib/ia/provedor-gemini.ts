@@ -14,7 +14,7 @@ import { IaIndisponivelError, type PedidoIa } from "./cliente";
  *
  * ⚠️ Na camada gratuita o Google usa o conteúdo enviado pra melhorar os
  * produtos dele, e revisores humanos podem ler. Isso está documentado na página
- * de preços do Gemini. Vale pra foto de cupom e de receita; a leitura de
+ * de preços do Gemini. Vale pra foto de nota e de receita; a leitura de
  * conversa do WhatsApp leva nome e telefone de cliente junto, então essa é a
  * que merece a decisão consciente de quem configura.
  */
@@ -25,7 +25,7 @@ import { IaIndisponivelError, type PedidoIa } from "./cliente";
  * Flash e não Pro de propósito: as três leituras são extração, não raciocínio
  * longo — e o Pro não tem camada gratuita.
  *
- * `gemini-3.5-flash` e não o 3.7: no mesmo cupom de teste os dois devolveram
+ * `gemini-3.5-flash` e não o 3.7: no mesma nota de teste os dois devolveram
  * exatamente a mesma leitura, mas o 3.5 levou 11 s contra 48 s do 3.7. Como o
  * resultado empata, ganha o rápido — esperar 48 s olhando pra tela depois de
  * fotografar faria ela desistir do atalho e voltar a digitar.

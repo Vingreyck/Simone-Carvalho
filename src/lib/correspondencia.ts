@@ -1,7 +1,7 @@
 import { normalizarTexto } from "./format";
 
 /**
- * Casa o texto do cupom com o insumo cadastrado.
+ * Casa o texto da nota com o insumo cadastrado.
  *
  * "ACUC REFINADO UNIAO 1KG" precisa virar "Açúcar refinado". Isso não é
  * trabalho pra IA: é comparação de texto, e comparação de texto é determinística,
@@ -19,12 +19,12 @@ export type Candidato = {
 export type Correspondencia = {
   id: string;
   nome: string;
-  /** 0 a 1 — quanto do nome do insumo foi reconhecido no texto do cupom */
+  /** 0 a 1 — quanto do nome do insumo foi reconhecido no texto da nota */
   confianca: number;
 };
 
 /**
- * Palavras que aparecem em quase todo cupom e não ajudam a distinguir nada.
+ * Palavras que aparecem em quase todo nota e não ajudam a distinguir nada.
  * Sem tirar essas, "PACOTE" casaria com qualquer insumo que tenha "pacote".
  */
 const RUIDO = new Set([
@@ -45,7 +45,7 @@ function palavrasUteis(texto: string): string[] {
  * Quanto duas palavras se parecem.
  *
  * Prefixo curto vale quase tanto quanto palavra inteira, e isso é proposital:
- * abreviação de cupom é sempre muito mais curta que a palavra ("cond" de
+ * abreviação de nota é sempre muito mais curta que a palavra ("cond" de
  * condensado). Penalizar pelo tamanho relativo jogaria fora justamente o sinal
  * que a gente quer ler.
  */
@@ -87,10 +87,10 @@ function pesosPorPalavra(candidatos: Candidato[]): Map<string, number> {
 }
 
 /**
- * Pontua um candidato contra o texto do cupom.
+ * Pontua um candidato contra o texto da nota.
  *
- * A média é sobre as palavras do INSUMO, não do cupom: marca, peso e código do
- * cupom não devem diluir a nota. O que importa é quanto do nome do insumo foi
+ * A média é sobre as palavras do INSUMO, não da nota: marca, peso e código do
+ * nota não devem diluir a nota. O que importa é quanto do nome do insumo foi
  * reconhecido ali.
  */
 function pontuar(
@@ -126,7 +126,7 @@ function pontuar(
 }
 
 /**
- * Encontra o insumo mais parecido com o texto do cupom.
+ * Encontra o insumo mais parecido com o texto da nota.
  *
  * @param apelidos casamentos que ela já confirmou antes — têm prioridade total
  * @returns null quando nada chegou perto o bastante (melhor pedir do que errar)
