@@ -26,7 +26,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { carregarPlano } from "@/server/plano";
 import { insumosSemConferirAlergenos } from "@/server/alergenos";
 import { ManutencaoAutomatica } from "./manutencao-automatica";
-import { PrimeirosPassos } from "./primeiros-passos";
+import {
+  PrimeirosPassos,
+  RoteiroPendente,
+  type EstadoDoRoteiro,
+} from "./primeiros-passos";
 
 export const dynamic = "force-dynamic";
 
@@ -87,6 +91,7 @@ export default async function PaginaPainel() {
       prisma.compra.count(),
       prisma.receita.count({ where: { ativo: true } }),
       prisma.produto.count({ where: { ativo: true } }),
+      prisma.custoFixoMensal.count({ where: { ativo: true } }),
     ]),
     carregarPlano(),
     insumosSemConferirAlergenos(),
@@ -100,7 +105,22 @@ export default async function PaginaPainel() {
     }),
   ]);
 
-  const [totalInsumos, totalCompras, totalReceitas, totalProdutos] = contagens;
+  const [
+    totalInsumos,
+    totalCompras,
+    totalReceitas,
+    totalProdutos,
+    totalContasFixas,
+  ] = contagens;
+
+  const roteiro: EstadoDoRoteiro = {
+    totalInsumos,
+    temCompra: totalCompras > 0,
+    temHoraDeTrabalho: Number(config?.valorHoraMaoDeObra ?? 0) > 0,
+    temContaFixa: totalContasFixas > 0,
+    temReceita: totalReceitas > 0,
+    temProduto: totalProdutos > 0,
+  };
 
   // Quem decide se a rotina automática roda é o servidor: o gatilho só é
   // montado quando ela está vencida, então o F5 do dia a dia não custa nada.
@@ -127,16 +147,7 @@ export default async function PaginaPainel() {
     return (
       <>
         {precisaManutencao ? <ManutencaoAutomatica /> : null}
-        <PrimeirosPassos
-          totalInsumos={totalInsumos}
-          temCompra={totalCompras > 0}
-          temReceita={totalReceitas > 0}
-          temProduto={totalProdutos > 0}
-          precificacaoConfigurada={
-            Number(config?.valorHoraMaoDeObra ?? 0) > 0 ||
-            Number(config?.percentualCustosFixos ?? 0) > 0
-          }
-        />
+        <PrimeirosPassos estado={roteiro} />
       </>
     );
   }
@@ -233,6 +244,16 @@ export default async function PaginaPainel() {
   return (
     <div className="mx-auto max-w-5xl space-y-5">
       {precisaManutencao ? <ManutencaoAutomatica /> : null}
+
+      {/*
+        O roteiro fica em cima de tudo enquanto não terminar.
+
+        Não é alerta do dia — é o que está impedindo o sistema de responder a
+        pergunta pra qual ele existe. Enquanto falta ficha técnica ou hora de
+        trabalho, os números abaixo contam meia verdade. Some sozinho no dia em
+        que a última etapa for concluída.
+      */}
+      <RoteiroPendente estado={roteiro} />
 
       {/* ------------------------------------------------------- números */}
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-3">

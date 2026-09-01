@@ -418,6 +418,37 @@ A data vem marcada como sugestão, com o aviso "confira na embalagem", e o rótu
 some assim que ela mexe no campo — data preenchida sozinha precisa se anunciar,
 senão ela acha que digitou e não confere.
 
+## 📖 Manual dela e roteiro de instalação
+
+`docs/MANUAL-SIMONE.md` é escrito **pra ela**, não pra dev: por que o sistema
+existe, como instalar no celular, o que fazer na primeira semana, o dia a dia, o
+que cada aviso significa e as perguntas que ela vai fazer ("o preço sugerido
+está muito mais alto do que eu cobro, está errado?"). Tem uma seção do que o
+sistema faz sozinho e outra do que ele **nunca** faz — sem essa segunda, a
+primeira assusta.
+
+⚠️ **O roteiro de primeiros passos não some mais na segunda etapa.** Ele sumia
+quando `totalCompras > 0 || totalReceitas > 0`, ou seja: ela perdia o mapa
+exatamente no meio, faltando configurar hora de trabalho, ficha técnica e
+produto. Agora `PrimeirosPassos` ocupa a tela só enquanto está tudo vazio, e a
+partir daí vira `RoteiroPendente` — uma faixa fina no topo do painel mostrando
+**só a próxima etapa**, que some quando a última for concluída. As etapas moram
+em `montarPassos()`, lidas pelos dois.
+
+Duas correções que vieram junto:
+
+- A etapa de precificação aceitava `valorHora > 0 **ou** %custosFixos > 0`. Como
+  o sistema pode nascer com 15% de custos fixos chutado, ela aparecia como feita
+  com a hora dela valendo **zero** — trabalhar de graça, que é o erro que faz o
+  lucro parecer maior do que é. Agora só a hora conta.
+- Cadastrar as contas fixas virou etapa própria: é ela que faz o `%CustosFixos`
+  sair da realidade em vez do chute.
+
+⚠️ **`/producao/plano` não era alcançável pelo menu** — só pelo atalho do painel,
+e só quando havia encomenda pendente. A melhor tela do módulo estava escondida
+atrás de uma condição. Descoberto escrevendo o manual, ao tentar documentar o
+caminho até ela. Agora tem botão "O que fazer" no cabeçalho de Produção.
+
 ## 🗺️ Fases
 
 | Fase | Módulo | Situação |

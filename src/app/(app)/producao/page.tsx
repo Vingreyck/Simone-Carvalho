@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CookingPot, Plus } from "lucide-react";
+import { ClipboardList, CookingPot, Plus } from "lucide-react";
 
 import { prisma } from "@/lib/db";
 import { formatarData, formatarMoeda } from "@/lib/format";
@@ -31,12 +31,25 @@ export default async function PaginaProducao() {
         descricao="Registre o que fez e o estoque baixa sozinho."
         acao={
           temReceita > 0 ? (
-            <Button asChild>
-              <Link href="/producao/nova">
-                <Plus className="size-4" />
-                Registrar produção
-              </Link>
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              {/*
+                "O que fazer" só era alcançável pelo atalho do painel, e só
+                quando havia encomenda pendente. Quem entrava por Produção não
+                tinha como chegar nela — a melhor tela do módulo ficava
+                escondida atrás de uma condição.
+              */}
+              <Button variant="outline" asChild>
+                <Link href="/producao/plano">
+                  <ClipboardList className="size-4" />O que fazer
+                </Link>
+              </Button>
+              <Button asChild>
+                <Link href="/producao/nova">
+                  <Plus className="size-4" />
+                  Registrar produção
+                </Link>
+              </Button>
+            </div>
           ) : null
         }
       />
